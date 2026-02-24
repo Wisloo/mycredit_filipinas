@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #FFF8F0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  /* Glass morphism card */
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-lg;
+  }
+
+  /* Modern card with hover lift */
+  .card-hover {
+    @apply transition-all duration-300 ease-out;
+  }
+  .card-hover:hover {
+    @apply -translate-y-1 shadow-xl;
+  }
+
+  /* Gradient text utility */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-ph-blue-500 to-ph-blue-700;
+  }
+  .text-gradient-gold {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-ph-gold-500 to-ph-gold-600;
+  }
+
+  /* Stat card with left accent border */
+  .stat-card {
+    @apply bg-white rounded-2xl p-5 border border-gray-100 shadow-sm card-hover relative overflow-hidden;
+  }
+  .stat-card::before {
+    content: '';
+    @apply absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl;
+  }
+
+  /* Modern table styling */
+  .modern-table thead tr {
+    @apply bg-gradient-to-r from-gray-50 to-gray-100/50 border-b border-gray-200;
+  }
+  .modern-table th {
+    @apply px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider;
+  }
+  .modern-table tbody tr {
+    @apply transition-colors duration-150;
+  }
+  .modern-table tbody tr:hover {
+    @apply bg-ph-blue-50/30;
+  }
+
+  /* Status badge */
+  .badge {
+    @apply px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide;
+  }
+
+  /* Modern button */
+  .btn-primary {
+    @apply px-5 py-2.5 bg-ph-blue-500 text-white text-sm font-medium rounded-xl hover:bg-ph-blue-600 active:scale-[0.98] transition-all duration-200 shadow-sm shadow-ph-blue-500/20;
+  }
+  .btn-danger {
+    @apply px-5 py-2.5 bg-ph-red-500 text-white text-sm font-medium rounded-xl hover:bg-ph-red-600 active:scale-[0.98] transition-all duration-200 shadow-sm shadow-ph-red-500/20;
+  }
+  .btn-success {
+    @apply px-5 py-2.5 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700 active:scale-[0.98] transition-all duration-200 shadow-sm shadow-green-600/20;
+  }
+}
+
+@layer utilities {
+  .animate-slide-up {
+    animation: slideUp 0.25s ease-out;
+  }
+  .animate-fade-in {
+    animation: fadeIn 0.4s ease-out;
+  }
+  .animate-scale-in {
+    animation: scaleIn 0.3s ease-out;
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  .animate-float-slow {
+    animation: float 8s ease-in-out infinite;
+  }
+  .animate-pulse-soft {
+    animation: pulseSoft 3s ease-in-out infinite;
+  }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes pulseSoft {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Smooth transitions for all interactive elements */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #9EB4E0; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #0038A8; }
+
+/* Selection colors */
+::selection {
+  background: rgba(0, 56, 168, 0.15);
+  color: #0038A8;
+}
+
