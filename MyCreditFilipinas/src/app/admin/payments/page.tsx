@@ -40,6 +40,7 @@ export default function AdminPaymentsPage() {
   const [processing, setProcessing] = useState(false);
   const [actionError, setActionError] = useState("");
   const [receiptModal, setReceiptModal] = useState<string | null>(null);
+  const [viewModal, setViewModal] = useState<Payment | null>(null);
 
   const fetchPayments = () => {
     fetch("/api/payments")
@@ -246,26 +247,34 @@ export default function AdminPaymentsPage() {
                   <span className="text-gray-400 text-xs">No receipt</span>
                 )}
               </div>            </div>
-            {p.payment_status === "Pending" && (
-              <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+            <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
                 <button
-                  onClick={() =>
-                    setActionModal({ payment: p, action: "verify" })
-                  }
-                  className="flex-1 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                  onClick={() => setViewModal(p)}
+                  className="flex-1 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
                 >
-                  Verify
+                  View
                 </button>
-                <button
-                  onClick={() =>
-                    setActionModal({ payment: p, action: "reject" })
-                  }
-                  className="flex-1 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  Reject
-                </button>
+                {p.payment_status === "Pending" && (
+                  <>
+                    <button
+                      onClick={() =>
+                        setActionModal({ payment: p, action: "verify" })
+                      }
+                      className="flex-1 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      Verify
+                    </button>
+                    <button
+                      onClick={() =>
+                        setActionModal({ payment: p, action: "reject" })
+                      }
+                      className="flex-1 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      Reject
+                    </button>
+                  </>
+                )}
               </div>
-            )}
           </div>
         ))}
       </div>
@@ -481,6 +490,91 @@ export default function AdminPaymentsPage() {
                   ? "Yes, Verify"
                   : "Yes, Reject"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Detail Modal */}
+      {viewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setViewModal(null)}
+          />
+          <div className="relative bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 overflow-y-auto max-h-[90vh]">
+            <button
+              onClick={() => setViewModal(null)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Payment Details</h3>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-gray-500 text-xs">Payment ID</p>
+                <p className="font-medium text-gray-800">#{viewModal.payment_id}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-xs">Loan ID</p>
+                <p className="font-medium text-gray-800">#{viewModal.loan_id}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-xs">Borrower</p>
+                <p className="font-medium text-gray-800">{viewModal.borrower_name}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-xs">Amount Paid</p>
+                <p className="font-medium text-gray-800">₱{Number(viewModal.amount_paid).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-xs">Date</p>
+                <p className="font-medium text-gray-800">{new Date(viewModal.payment_date).toLocaleDateString()}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-xs">Method</p>
+                <p className="font-medium text-gray-800">{viewModal.payment_method || "—"}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-xs">Reference #</p>
+                <p className="font-medium text-gray-800">{viewModal.reference_number || "—"}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-xs">Status</p>
+                <span
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                    statusColors[viewModal.payment_status] || "bg-gray-100 text-gray-800"
+                  }`}
+                >
+                  {viewModal.payment_status}
+                </span>
+              </div>
+              {viewModal.remarks && (
+                <div className="col-span-2">
+                  <p className="text-gray-500 text-xs">Remarks</p>
+                  <p className="font-medium text-gray-800">{viewModal.remarks}</p>
+                </div>
+              )}
+              {viewModal.attachment_url && (
+                <div className="col-span-2">
+                  <p className="text-gray-500 text-xs mb-2">Receipt / Proof of Payment</p>
+                  <div
+                    className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50 cursor-zoom-in"
+                    onClick={() => setReceiptModal(viewModal.attachment_url!)}
+                  >
+                    <img
+                      src={viewModal.attachment_url}
+                      alt="Receipt"
+                      className="w-full max-h-48 object-contain"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 bg-black/30 transition-opacity">
+                      <span className="text-white text-xs font-medium flex items-center gap-1">
+                        <ZoomIn className="w-4 h-4" /> Click to enlarge
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

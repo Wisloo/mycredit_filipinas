@@ -77,7 +77,7 @@ export default function SignupPage() {
         return;
       }
       if (!personal.birthdate || !personal.gender) {
-        setError("Date of birth and gender are required");
+        setError("Date of birth and sex are required");
         return;
       }
     }
@@ -203,7 +203,7 @@ export default function SignupPage() {
           <input type="date" required value={personal.birthdate} onChange={(e) => updatePersonal("birthdate", e.target.value)} className={inputClass} />
         </div>
         <div>
-          <label className={labelClass}>Gender *</label>
+          <label className={labelClass}>Sex *</label>
           <select required value={personal.gender} onChange={(e) => updatePersonal("gender", e.target.value)} className={inputClass}>
             <option value="">Select...</option>
             <option value="Male">Male</option>
