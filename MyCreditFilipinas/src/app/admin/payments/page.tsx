@@ -39,6 +39,7 @@ export default function AdminPaymentsPage() {
   } | null>(null);
   const [processing, setProcessing] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
   const [receiptModal, setReceiptModal] = useState<string | null>(null);
   const [viewModal, setViewModal] = useState<Payment | null>(null);
 
@@ -64,7 +65,10 @@ export default function AdminPaymentsPage() {
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: actionModal.action }),
+          body: JSON.stringify({
+            action: actionModal.action,
+            ...(actionModal.action === "reject" && rejectReason.trim() ? { reject_reason: rejectReason.trim() } : {}),
+          }),
         }
       );
 
@@ -78,6 +82,7 @@ export default function AdminPaymentsPage() {
         );
         setActionModal(null);
         setActionError("");
+        setRejectReason("");
         fetchPayments();
       } else {
         setActionError(data.error || "Action failed. Please try again.");
@@ -250,7 +255,7 @@ export default function AdminPaymentsPage() {
             <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
                 <button
                   onClick={() => setViewModal(p)}
-                  className="flex-1 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                  className="flex-1 py-2 bg-ph-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   View
                 </button>
@@ -368,7 +373,7 @@ export default function AdminPaymentsPage() {
                     <div className="flex gap-1 justify-center">
                       <button
                         onClick={() => setViewModal(p)}
-                        className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                        className="px-3 py-1.5 bg-ph-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
                       >
                         View
                       </button>
@@ -469,6 +474,21 @@ export default function AdminPaymentsPage() {
               )}
             </p>
 
+            {actionModal.action === "reject" && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reason for rejection <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="e.g. Receipt does not match the amount, invalid reference number..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-300 focus:border-red-400 outline-none resize-none text-gray-900"
+                />
+              </div>
+            )}
+
             {actionError && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                 {actionError}
@@ -477,7 +497,7 @@ export default function AdminPaymentsPage() {
 
             <div className="flex gap-3">
               <button
-                onClick={() => { setActionModal(null); setActionError(""); }}
+                onClick={() => { setActionModal(null); setActionError(""); setRejectReason(""); }}
                 disabled={processing}
                 className="flex-1 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
               >
@@ -485,7 +505,7 @@ export default function AdminPaymentsPage() {
               </button>
               <button
                 onClick={handleAction}
-                disabled={processing}
+                disabled={processing || (actionModal.action === "reject" && !rejectReason.trim())}
                 className={`flex-1 py-2.5 text-white font-medium rounded-lg transition-colors text-sm disabled:opacity-50 ${
                   actionModal.action === "verify"
                     ? "bg-green-600 hover:bg-green-700"
@@ -559,8 +579,12 @@ export default function AdminPaymentsPage() {
               </div>
               {viewModal.remarks && (
                 <div className="col-span-2">
-                  <p className="text-gray-500 text-xs">Remarks</p>
-                  <p className="font-medium text-gray-800">{viewModal.remarks}</p>
+                  <p className="text-gray-500 text-xs">
+                    {viewModal.payment_status === "Rejected" ? "Reason for Rejection" : "Remarks"}
+                  </p>
+                  <p className={`font-medium ${viewModal.payment_status === "Rejected" ? "text-red-600" : "text-gray-800"}`}>
+                    {viewModal.remarks}
+                  </p>
                 </div>
               )}
               {viewModal.attachment_url && (

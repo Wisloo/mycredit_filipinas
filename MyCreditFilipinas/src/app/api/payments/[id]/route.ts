@@ -22,7 +22,7 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { action } = body; // "verify" | "reject"
+    const { action, reject_reason } = body; // "verify" | "reject"
 
     if (!["verify", "reject"].includes(action)) {
       return NextResponse.json(
@@ -64,9 +64,10 @@ export async function PATCH(
         `UPDATE loan_payments SET
           payment_status = $1,
           verified_by = $2,
+          remarks = CASE WHEN $4::text IS NOT NULL AND $4::text <> '' THEN $4::text ELSE remarks END,
           updated_at = NOW()
          WHERE payment_id = $3`,
-        [newStatus, session.id, paymentId]
+        [newStatus, session.id, paymentId, action === "reject" ? (reject_reason || null) : null]
       );
 
       // If verified, reduce only the principal portion from current_balance

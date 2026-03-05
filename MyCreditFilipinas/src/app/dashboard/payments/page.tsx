@@ -20,6 +20,7 @@ interface Payment {
   payment_method: string;
   payment_status: string;
   reference_number: string;
+  remarks: string | null;
 }
 
 const STATUS_META: Record<string, { chip: string; icon: React.ReactNode }> = {
@@ -273,6 +274,12 @@ export default function MyPaymentsPage() {
                       <p className="text-gray-400">Reference</p>
                       <p className="text-gray-700 truncate">{p.reference_number || "—"}</p>
                     </div>
+                    {p.payment_status === "Rejected" && p.remarks && (
+                      <div className="col-span-2 mt-1">
+                        <p className="text-gray-400">Reason for Rejection</p>
+                        <p className="text-rose-600 text-sm font-medium">{p.remarks}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -314,6 +321,11 @@ export default function MyPaymentsPage() {
                         <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold ${meta.chip}`}>
                           {meta.icon} {p.payment_status}
                         </span>
+                        {p.payment_status === "Rejected" && p.remarks && (
+                          <p className="text-rose-500 text-[10px] mt-1 max-w-[180px] mx-auto" title={p.remarks}>
+                            {p.remarks}
+                          </p>
+                        )}
                       </td>
                     </tr>
                   );
