@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
-import { RowDataPacket } from "mysql2";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,8 +14,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if user exists (we don't reveal this to the caller for privacy)
-    const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT user_id FROM users WHERE email_address = ? LIMIT 1",
+    const { rows } = await pool.query(
+      "SELECT user_id FROM users WHERE email_address = $1 LIMIT 1",
       [email.toLowerCase().trim()]
     );
 

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { ResultSetHeader, RowDataPacket } from "mysql2";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!
+);
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,9 +15,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { loan_id, amount_paid, payment_method, transaction_id, remarks, receipt_image } =
-      body;
+    const formData = await req.formData();
+    const loan_id = formData.get("loan_id");
+    const amount_paid = formData.get("amount_paid");
+    const payment_method = formData.get("payment_method");
+    const transaction_id = formData.get("transaction_id") as string | null;
+    const remarks = formData.get("remarks") as string | null;
+    const receiptFile = formData.get("receipt") as File | null;
 
     if (!loan_id || !amount_paid || !payment_method) {
       return NextResponse.json(
@@ -31,8 +38,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify this loan belongs to the user and is Active
-    const [loans] = await pool.query<RowDataPacket[]>(
-      "SELECT loan_id, current_balance, loan_status FROM loans WHERE loan_id = ? AND user_id = ?",
+    const { rows: loans } = await pool.query(
+      "SELECT loan_id, current_balance, loan_status FROM loans WHERE loan_id = $1 AND user_id = $2",
       [loan_id, session.id]
     );
 
@@ -47,33 +54,44 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Handle receipt image upload
+    // Handle receipt image upload via Supabase Storage
     let attachmentUrl: string | null = null;
-    if (receipt_image && typeof receipt_image === "string" && receipt_image.startsWith("data:image/")) {
+    if (receiptFile && receiptFile.size > 0) {
       try {
-        // Extract mimetype and base64 data
-        const matches = receipt_image.match(/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/);
-        if (matches) {
-          const ext = matches[1] === "jpeg" ? "jpg" : matches[1];
-          const base64Data = matches[2];
-          const buffer = Buffer.from(base64Data, "base64");
+        if (receiptFile.size > 5 * 1024 * 1024) {
+          return NextResponse.json(
+            { error: "Receipt image must be less than 5MB" },
+            { status: 400 }
+          );
+        }
 
-          // Limit file size to 5MB
-          if (buffer.length > 5 * 1024 * 1024) {
-            return NextResponse.json(
-              { error: "Receipt image must be less than 5MB" },
-              { status: 400 }
-            );
-          }
+        const mimeToExt: Record<string, string> = {
+          "image/png": "png",
+          "image/jpeg": "jpg",
+          "image/jpg": "jpg",
+          "image/gif": "gif",
+          "image/webp": "webp",
+        };
+        const ext = mimeToExt[receiptFile.type] || "jpg";
 
-          const uploadsDir = path.join(process.cwd(), "public", "uploads", "receipts");
-          await mkdir(uploadsDir, { recursive: true });
+        const buffer = Buffer.from(await receiptFile.arrayBuffer());
+        const filename = `receipt_${session.id}_${Date.now()}.${ext}`;
 
-          const filename = `receipt_${session.id}_${Date.now()}.${ext}`;
-          const filePath = path.join(uploadsDir, filename);
-          await writeFile(filePath, buffer);
+        const { error: uploadError } = await supabase.storage
+          .from("receipts")
+          .upload(filename, buffer, {
+            contentType: receiptFile.type,
+            upsert: false,
+          });
 
-          attachmentUrl = `/uploads/receipts/${filename}`;
+        if (uploadError) {
+          console.error("Supabase upload error:", uploadError);
+          // Fall back: continue without attachment
+        } else {
+          const { data: publicUrlData } = supabase.storage
+            .from("receipts")
+            .getPublicUrl(filename);
+          attachmentUrl = publicUrlData.publicUrl;
         }
       } catch (uploadErr) {
         console.error("Receipt upload error:", uploadErr);
@@ -81,11 +99,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const [result] = await pool.query<ResultSetHeader>(
+    const { rows } = await pool.query(
       `INSERT INTO loan_payments (
         loan_id, payment_date, amount_paid, payment_method,
         payment_status, transaction_id, remarks, attachment_url, created_at, updated_at
-      ) VALUES (?, NOW(), ?, ?, 'Pending', ?, ?, ?, NOW(), NOW())`,
+      ) VALUES ($1, NOW(), $2, $3, 'Pending', $4, $5, $6, NOW(), NOW())
+      RETURNING payment_id`,
       [
         loan_id,
         amount_paid,
@@ -99,7 +118,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         message: "Payment submitted successfully. It will be verified by staff.",
-        payment_id: result.insertId,
+        payment_id: rows[0].payment_id,
       },
       { status: 201 }
     );

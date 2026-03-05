@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     const effectiveUserId = session.role === "user" ? String(session.id) : userId;
 
     if (effectiveUserId) {
-      const [rows] = await pool.query(
+      const { rows } = await pool.query(
         `SELECT l.loan_id, l.principal_amt, l.term_months AS loan_term_months, l.loan_status,
                 l.interest_rate, l.current_balance, l.release_frequency, l.amortization,
                 l.date_released, l.term_due, l.created_at,
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
          FROM loans l
          LEFT JOIN loan_types lt ON l.loan_type_id = lt.loan_type_id
          LEFT JOIN loan_purposes lp ON l.loan_purpose_id = lp.loan_purpose_id
-         WHERE l.user_id = ?
+         WHERE l.user_id = $1
          ORDER BY l.created_at DESC`,
         [effectiveUserId]
       );
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const [rows] = await pool.query(
+    const { rows } = await pool.query(
       `SELECT l.loan_id, l.principal_amt, l.term_months AS loan_term_months, l.loan_status,
               l.interest_rate, l.current_balance, l.release_frequency,
               l.date_released, l.term_due, l.created_at,
@@ -73,16 +73,17 @@ export async function POST(req: NextRequest) {
       term_months, amortization, fees, profit, interest_rate,
       current_balance, loan_status, release_frequency
     } = body;
-    const [result]: any = await pool.query(
+    const { rows } = await pool.query(
       `INSERT INTO loans (user_id, loan_type_id, loan_purpose_id, principal_amt,
         term_months, amortization, fees, profit, interest_rate, current_balance,
         loan_status, release_frequency, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NOW(),NOW())`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW(),NOW())
+       RETURNING loan_id`,
       [user_id, loan_type_id, loan_purpose_id, principal_amt,
        term_months, amortization, fees, profit, interest_rate,
        current_balance, loan_status, release_frequency]
     );
-    return NextResponse.json({ loan_id: result.insertId }, { status: 201 });
+    return NextResponse.json({ loan_id: rows[0].loan_id }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: "Failed to create loan" }, { status: 500 });
   }

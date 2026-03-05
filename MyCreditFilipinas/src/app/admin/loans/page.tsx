@@ -424,7 +424,7 @@ export default function AdminLoansPage() {
             {actionModal.action === "deny" && (
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Reason for denial (optional)
+                  Reason for denial *
                 </label>
                 <textarea
                   value={denyReason}

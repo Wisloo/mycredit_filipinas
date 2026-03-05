@@ -11,64 +11,58 @@ export async function GET() {
     }
     const userId = session.id;
 
-    const [
-      [userRows],
-      [profileRows],
-      [contactRows],
-      [bankRows],
-      [addressRows],
-      [referenceRows],
-    ]: any = await Promise.all([
-      pool.query(
-        `SELECT user_id, first_name, middle_name, last_name, suffix, gender,
-                birthdate, facebook, email_address, created_at
-         FROM users WHERE user_id = ?`,
-        [userId]
-      ),
-      pool.query(
-        `SELECT user_profile_id, occupation, employer_agency, previous_employer,
-                educational_attainment, income
-         FROM user_profiles WHERE user_id = ?`,
-        [userId]
-      ),
-      pool.query(
-        `SELECT contact_number_id, contact_number, contact_type
-         FROM contact_numbers WHERE user_id = ? ORDER BY contact_number_id`,
-        [userId]
-      ),
-      pool.query(
-        `SELECT bank_account_id, bank_name, card_number, card_expiry_date
-         FROM bank_accounts WHERE user_id = ? ORDER BY bank_account_id`,
-        [userId]
-      ),
-      pool.query(
-        `SELECT ua.user_address_id, ua.address_type, ua.residence_type, ua.is_primary,
-                a.address_id, a.building_floor, a.lot, a.blk, a.purok,
-                a.barangay, a.city, a.full_address_string, a.landmarks
-         FROM user_addresses ua
-         JOIN addresses a ON ua.address_id = a.address_id
-         WHERE ua.user_id = ? AND ua.is_active = 1
-         ORDER BY ua.user_address_id`,
-        [userId]
-      ),
-      pool.query(
-        `SELECT reference_id, reference_type, name, address, contact_number
-         FROM \`references\` WHERE user_id = ? ORDER BY reference_id`,
-        [userId]
-      ),
-    ]);
+    const [userRes, profileRes, contactRes, bankRes, addressRes, referenceRes] =
+      await Promise.all([
+        pool.query(
+          `SELECT user_id, first_name, middle_name, last_name, suffix, gender,
+                  birthdate, facebook, email_address, created_at
+           FROM users WHERE user_id = $1`,
+          [userId]
+        ),
+        pool.query(
+          `SELECT user_profile_id, occupation, employer_agency, previous_employer,
+                  educational_attainment, income
+           FROM user_profiles WHERE user_id = $1`,
+          [userId]
+        ),
+        pool.query(
+          `SELECT contact_number_id, contact_number, contact_type
+           FROM contact_numbers WHERE user_id = $1 ORDER BY contact_number_id`,
+          [userId]
+        ),
+        pool.query(
+          `SELECT bank_account_id, bank_name, card_number, card_expiry_date
+           FROM bank_accounts WHERE user_id = $1 ORDER BY bank_account_id`,
+          [userId]
+        ),
+        pool.query(
+          `SELECT ua.user_address_id, ua.address_type, ua.residence_type, ua.is_primary,
+                  a.address_id, a.building_floor, a.lot, a.blk, a.purok,
+                  a.barangay, a.city, a.full_address_string, a.landmarks
+           FROM user_addresses ua
+           JOIN addresses a ON ua.address_id = a.address_id
+           WHERE ua.user_id = $1 AND ua.is_active = true
+           ORDER BY ua.user_address_id`,
+          [userId]
+        ),
+        pool.query(
+          `SELECT reference_id, reference_type, name, address, contact_number
+           FROM "references" WHERE user_id = $1 ORDER BY reference_id`,
+          [userId]
+        ),
+      ]);
 
-    if (!userRows.length) {
+    if (!userRes.rows.length) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     return NextResponse.json({
-      ...userRows[0],
-      profile: profileRows[0] || null,
-      contacts: contactRows,
-      bank_accounts: bankRows,
-      addresses: addressRows,
-      references: referenceRows,
+      ...userRes.rows[0],
+      profile: profileRes.rows[0] || null,
+      contacts: contactRes.rows,
+      bank_accounts: bankRes.rows,
+      addresses: addressRes.rows,
+      references: referenceRes.rows,
     });
   } catch (error) {
     console.error("Profile GET error:", error);
@@ -90,8 +84,8 @@ export async function PUT(req: NextRequest) {
     if (body.basic) {
       const { first_name, middle_name, last_name, suffix, gender, birthdate, facebook } = body.basic;
       await pool.query(
-        `UPDATE users SET first_name=?, middle_name=?, last_name=?, suffix=?,
-         gender=?, birthdate=?, facebook=?, updated_at=NOW() WHERE user_id=?`,
+        `UPDATE users SET first_name=$1, middle_name=$2, last_name=$3, suffix=$4,
+         gender=$5, birthdate=$6, facebook=$7, updated_at=NOW() WHERE user_id=$8`,
         [first_name, middle_name || null, last_name, suffix || null, gender || null, birthdate || null, facebook || null, userId]
       );
     }
@@ -99,20 +93,20 @@ export async function PUT(req: NextRequest) {
     // Upsert employment/education profile
     if (body.employment) {
       const { occupation, employer_agency, previous_employer, educational_attainment, income } = body.employment;
-      const [existing]: any = await pool.query(
-        "SELECT user_profile_id FROM user_profiles WHERE user_id = ?",
+      const { rows: existing } = await pool.query(
+        "SELECT user_profile_id FROM user_profiles WHERE user_id = $1",
         [userId]
       );
       if (existing.length > 0) {
         await pool.query(
-          `UPDATE user_profiles SET occupation=?, employer_agency=?, previous_employer=?,
-           educational_attainment=?, income=?, updated_at=NOW() WHERE user_id=?`,
+          `UPDATE user_profiles SET occupation=$1, employer_agency=$2, previous_employer=$3,
+           educational_attainment=$4, income=$5, updated_at=NOW() WHERE user_id=$6`,
           [occupation || null, employer_agency || null, previous_employer || null, educational_attainment || null, income || null, userId]
         );
       } else {
         await pool.query(
           `INSERT INTO user_profiles (user_id, occupation, employer_agency, previous_employer,
-           educational_attainment, income, created_at, updated_at) VALUES (?,?,?,?,?,?,NOW(),NOW())`,
+           educational_attainment, income, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,NOW(),NOW())`,
           [userId, occupation || null, employer_agency || null, previous_employer || null, educational_attainment || null, income || null]
         );
       }
@@ -147,23 +141,23 @@ export async function POST(req: NextRequest) {
         if (!contact_number || !contact_type) {
           return NextResponse.json({ error: "contact_number and contact_type are required" }, { status: 400 });
         }
-        const [result]: any = await pool.query(
-          "INSERT INTO contact_numbers (user_id, contact_number, contact_type, created_at) VALUES (?,?,?,NOW())",
+        const { rows } = await pool.query(
+          "INSERT INTO contact_numbers (user_id, contact_number, contact_type, created_at) VALUES ($1,$2,$3,NOW()) RETURNING contact_number_id",
           [userId, contact_number, contact_type]
         );
-        return NextResponse.json({ id: result.insertId }, { status: 201 });
+        return NextResponse.json({ id: rows[0].contact_number_id }, { status: 201 });
       }
       if (action === "update") {
         const { contact_number_id, contact_number, contact_type } = data;
         await pool.query(
-          "UPDATE contact_numbers SET contact_number=?, contact_type=?, updated_at=NOW() WHERE contact_number_id=? AND user_id=?",
+          "UPDATE contact_numbers SET contact_number=$1, contact_type=$2, updated_at=NOW() WHERE contact_number_id=$3 AND user_id=$4",
           [contact_number, contact_type, contact_number_id, userId]
         );
         return NextResponse.json({ success: true });
       }
       if (action === "delete") {
         await pool.query(
-          "DELETE FROM contact_numbers WHERE contact_number_id=? AND user_id=?",
+          "DELETE FROM contact_numbers WHERE contact_number_id=$1 AND user_id=$2",
           [data.contact_number_id, userId]
         );
         return NextResponse.json({ success: true });
@@ -177,23 +171,23 @@ export async function POST(req: NextRequest) {
         if (!bank_name) {
           return NextResponse.json({ error: "bank_name is required" }, { status: 400 });
         }
-        const [result]: any = await pool.query(
-          "INSERT INTO bank_accounts (user_id, bank_name, card_number, card_expiry_date, created_at) VALUES (?,?,?,?,NOW())",
+        const { rows } = await pool.query(
+          "INSERT INTO bank_accounts (user_id, bank_name, card_number, card_expiry_date, created_at) VALUES ($1,$2,$3,$4,NOW()) RETURNING bank_account_id",
           [userId, bank_name, card_number || null, card_expiry_date || null]
         );
-        return NextResponse.json({ id: result.insertId }, { status: 201 });
+        return NextResponse.json({ id: rows[0].bank_account_id }, { status: 201 });
       }
       if (action === "update") {
         const { bank_account_id, bank_name, card_number, card_expiry_date } = data;
         await pool.query(
-          "UPDATE bank_accounts SET bank_name=?, card_number=?, card_expiry_date=?, updated_at=NOW() WHERE bank_account_id=? AND user_id=?",
+          "UPDATE bank_accounts SET bank_name=$1, card_number=$2, card_expiry_date=$3, updated_at=NOW() WHERE bank_account_id=$4 AND user_id=$5",
           [bank_name, card_number || null, card_expiry_date || null, bank_account_id, userId]
         );
         return NextResponse.json({ success: true });
       }
       if (action === "delete") {
         await pool.query(
-          "DELETE FROM bank_accounts WHERE bank_account_id=? AND user_id=?",
+          "DELETE FROM bank_accounts WHERE bank_account_id=$1 AND user_id=$2",
           [data.bank_account_id, userId]
         );
         return NextResponse.json({ success: true });
@@ -209,55 +203,55 @@ export async function POST(req: NextRequest) {
         }
         const fullAddress = [lot, blk, purok, barangay, city].filter(Boolean).join(", ");
         // Use transaction for two related inserts
-        const conn = await pool.getConnection();
+        const client = await pool.connect();
         try {
-          await conn.beginTransaction();
-          const [addrResult]: any = await conn.query(
+          await client.query("BEGIN");
+          const { rows: addrRows } = await client.query(
             `INSERT INTO addresses (building_floor, lot, blk, purok, barangay, city, full_address_string, landmarks, created_at, updated_at)
-             VALUES (?,?,?,?,?,?,?,?,NOW(),NOW())`,
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),NOW()) RETURNING address_id`,
             [building_floor || null, lot || null, blk || null, purok || null, barangay, city, fullAddress, landmarks || null]
           );
-          const [uaResult]: any = await conn.query(
+          const { rows: uaRows } = await client.query(
             `INSERT INTO user_addresses (user_id, address_id, address_type, residence_type, is_primary, is_active, created_at, updated_at)
-             VALUES (?,?,?,?,0,1,NOW(),NOW())`,
-            [userId, addrResult.insertId, address_type || "present", residence_type || null]
+             VALUES ($1,$2,$3,$4,false,true,NOW(),NOW()) RETURNING user_address_id`,
+            [userId, addrRows[0].address_id, address_type || "present", residence_type || null]
           );
-          await conn.commit();
-          return NextResponse.json({ id: uaResult.insertId, address_id: addrResult.insertId }, { status: 201 });
+          await client.query("COMMIT");
+          return NextResponse.json({ id: uaRows[0].user_address_id, address_id: addrRows[0].address_id }, { status: 201 });
         } catch (err) {
-          await conn.rollback();
+          await client.query("ROLLBACK");
           throw err;
         } finally {
-          conn.release();
+          client.release();
         }
       }
       if (action === "update") {
         const { user_address_id, address_id, address_type, residence_type, building_floor, lot, blk, purok, barangay, city, landmarks } = data;
         const fullAddress = [lot, blk, purok, barangay, city].filter(Boolean).join(", ");
         // Verify ownership
-        const [check]: any = await pool.query(
-          "SELECT user_address_id FROM user_addresses WHERE user_address_id=? AND user_id=?",
+        const { rows: check } = await pool.query(
+          "SELECT user_address_id FROM user_addresses WHERE user_address_id=$1 AND user_id=$2",
           [user_address_id, userId]
         );
         if (!check.length) {
           return NextResponse.json({ error: "Address not found" }, { status: 404 });
         }
         await pool.query(
-          `UPDATE addresses SET building_floor=?, lot=?, blk=?, purok=?, barangay=?, city=?,
-           full_address_string=?, landmarks=?, updated_at=NOW() WHERE address_id=?`,
+          `UPDATE addresses SET building_floor=$1, lot=$2, blk=$3, purok=$4, barangay=$5, city=$6,
+           full_address_string=$7, landmarks=$8, updated_at=NOW() WHERE address_id=$9`,
           [building_floor || null, lot || null, blk || null, purok || null, barangay, city, fullAddress, landmarks || null, address_id]
         );
         await pool.query(
-          "UPDATE user_addresses SET address_type=?, residence_type=?, updated_at=NOW() WHERE user_address_id=?",
+          "UPDATE user_addresses SET address_type=$1, residence_type=$2, updated_at=NOW() WHERE user_address_id=$3",
           [address_type, residence_type || null, user_address_id]
         );
         return NextResponse.json({ success: true });
       }
       if (action === "delete") {
         const { user_address_id } = data;
-        // Soft-delete: set is_active = 0
+        // Soft-delete: set is_active = false
         await pool.query(
-          "UPDATE user_addresses SET is_active=0, moved_out_at=NOW(), updated_at=NOW() WHERE user_address_id=? AND user_id=?",
+          "UPDATE user_addresses SET is_active=false, moved_out_at=NOW(), updated_at=NOW() WHERE user_address_id=$1 AND user_id=$2",
           [user_address_id, userId]
         );
         return NextResponse.json({ success: true });
@@ -271,23 +265,23 @@ export async function POST(req: NextRequest) {
         if (!name || !reference_type) {
           return NextResponse.json({ error: "name and reference_type are required" }, { status: 400 });
         }
-        const [result]: any = await pool.query(
-          "INSERT INTO `references` (user_id, reference_type, name, address, contact_number, created_at) VALUES (?,?,?,?,?,NOW())",
+        const { rows } = await pool.query(
+          `INSERT INTO "references" (user_id, reference_type, name, address, contact_number, created_at) VALUES ($1,$2,$3,$4,$5,NOW()) RETURNING reference_id`,
           [userId, reference_type, name, address || null, contact_number || null]
         );
-        return NextResponse.json({ id: result.insertId }, { status: 201 });
+        return NextResponse.json({ id: rows[0].reference_id }, { status: 201 });
       }
       if (action === "update") {
         const { reference_id, reference_type, name, address, contact_number } = data;
         await pool.query(
-          "UPDATE `references` SET reference_type=?, name=?, address=?, contact_number=?, updated_at=NOW() WHERE reference_id=? AND user_id=?",
+          `UPDATE "references" SET reference_type=$1, name=$2, address=$3, contact_number=$4, updated_at=NOW() WHERE reference_id=$5 AND user_id=$6`,
           [reference_type, name, address || null, contact_number || null, reference_id, userId]
         );
         return NextResponse.json({ success: true });
       }
       if (action === "delete") {
         await pool.query(
-          "DELETE FROM `references` WHERE reference_id=? AND user_id=?",
+          `DELETE FROM "references" WHERE reference_id=$1 AND user_id=$2`,
           [data.reference_id, userId]
         );
         return NextResponse.json({ success: true });

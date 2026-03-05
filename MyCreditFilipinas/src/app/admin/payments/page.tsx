@@ -426,8 +426,8 @@ export default function AdminPaymentsPage() {
                 ? "Verify Payment"
                 : "Reject Payment"}
             </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              {actionModal.payment.attachment_url && (
+
+            {actionModal.payment.attachment_url && (
               <div className="mb-4">
                 <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Receipt / Proof of Payment</p>
                 <div
@@ -445,6 +445,8 @@ export default function AdminPaymentsPage() {
                 </div>
               </div>
             )}
+
+            <p className="text-sm text-gray-600 mb-4">
             {actionModal.action === "verify" ? (
                 <>
                   Confirm that Payment #{actionModal.payment.payment_id} of{" "}

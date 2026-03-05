@@ -32,18 +32,18 @@ export async function PATCH(
     }
 
     // Use a transaction to prevent race conditions
-    const conn = await pool.getConnection();
+    const client = await pool.connect();
     try {
-      await conn.beginTransaction();
+      await client.query("BEGIN");
 
       // Lock the payment row
-      const [rows]: any = await conn.query(
-        "SELECT payment_id, payment_status, loan_id, amount_paid FROM loan_payments WHERE payment_id = ? FOR UPDATE",
+      const { rows } = await client.query(
+        "SELECT payment_id, payment_status, loan_id, amount_paid FROM loan_payments WHERE payment_id = $1 FOR UPDATE",
         [paymentId]
       );
 
       if (rows.length === 0) {
-        await conn.rollback();
+        await client.query("ROLLBACK");
         return NextResponse.json(
           { error: "Payment not found" },
           { status: 404 }
@@ -51,7 +51,7 @@ export async function PATCH(
       }
 
       if (rows[0].payment_status !== "Pending") {
-        await conn.rollback();
+        await client.query("ROLLBACK");
         return NextResponse.json(
           { error: `Payment is already ${rows[0].payment_status}` },
           { status: 400 }
@@ -60,20 +60,20 @@ export async function PATCH(
 
       const newStatus = action === "verify" ? "Verified" : "Rejected";
 
-      await conn.query(
+      await client.query(
         `UPDATE loan_payments SET
-          payment_status = ?,
-          verified_by = ?,
+          payment_status = $1,
+          verified_by = $2,
           updated_at = NOW()
-         WHERE payment_id = ?`,
+         WHERE payment_id = $3`,
         [newStatus, session.id, paymentId]
       );
 
       // If verified, reduce only the principal portion from current_balance
       if (action === "verify") {
         // Lock and fetch the loan row
-        const [loanRows]: any = await conn.query(
-          "SELECT loan_id, current_balance, interest_rate, release_frequency FROM loans WHERE loan_id = ? FOR UPDATE",
+        const { rows: loanRows } = await client.query(
+          "SELECT loan_id, current_balance, interest_rate, release_frequency FROM loans WHERE loan_id = $1 FOR UPDATE",
           [rows[0].loan_id]
         );
 
@@ -93,25 +93,25 @@ export async function PATCH(
 
           const newBalance = Math.max(currentBalance - principalPortion, 0);
 
-          await conn.query(
+          await client.query(
             `UPDATE loans SET
-              current_balance = ?,
+              current_balance = $1,
               updated_at = NOW()
-             WHERE loan_id = ?`,
+             WHERE loan_id = $2`,
             [newBalance.toFixed(2), rows[0].loan_id]
           );
 
           // Check if loan is fully paid (balance within 1 peso tolerance for rounding)
           if (newBalance < 1) {
-            await conn.query(
-              "UPDATE loans SET loan_status = 'Paid', current_balance = 0, updated_at = NOW() WHERE loan_id = ?",
+            await client.query(
+              "UPDATE loans SET loan_status = 'Paid', current_balance = 0, updated_at = NOW() WHERE loan_id = $1",
               [rows[0].loan_id]
             );
           }
 
           // Update the oldest unpaid/partial schedule entry for this loan
-          const [scheduleRows]: any = await conn.query(
-            "SELECT schedule_id, scheduled_amount, paid_amount FROM loan_schedules WHERE loan_id = ? AND status IN ('Unpaid', 'Partial') ORDER BY due_date ASC LIMIT 1",
+          const { rows: scheduleRows } = await client.query(
+            "SELECT schedule_id, scheduled_amount, paid_amount FROM loan_schedules WHERE loan_id = $1 AND status IN ('Unpaid', 'Partial') ORDER BY due_date ASC LIMIT 1",
             [rows[0].loan_id]
           );
           if (scheduleRows.length > 0) {
@@ -120,15 +120,15 @@ export async function PATCH(
             const scheduled = Number(sched.scheduled_amount);
             const newSchedStatus =
               newPaid >= scheduled - 0.01 ? "Paid" : "Partial";
-            await conn.query(
-              "UPDATE loan_schedules SET paid_amount = ?, status = ? WHERE schedule_id = ?",
+            await client.query(
+              "UPDATE loan_schedules SET paid_amount = $1, status = $2 WHERE schedule_id = $3",
               [newPaid.toFixed(2), newSchedStatus, sched.schedule_id]
             );
           }
         }
       }
 
-      await conn.commit();
+      await client.query("COMMIT");
 
       return NextResponse.json({
         message: `Payment ${action === "verify" ? "verified" : "rejected"} successfully`,
@@ -136,10 +136,10 @@ export async function PATCH(
         new_status: newStatus,
       });
     } catch (err) {
-      await conn.rollback();
+      await client.query("ROLLBACK");
       throw err;
     } finally {
-      conn.release();
+      client.release();
     }
   } catch (error) {
     console.error("Payment status update error:", error);

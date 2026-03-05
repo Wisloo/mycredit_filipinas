@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { getSession, hashPassword } from "@/lib/auth";
-import { ResultSetHeader, RowDataPacket } from "mysql2";
 
 export async function GET() {
   try {
@@ -10,7 +9,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [rows] = await pool.query(
+    const { rows } = await pool.query(
       "SELECT staff_id, full_name, role, username, is_inactive, created_at FROM staff ORDER BY created_at DESC"
     );
     return NextResponse.json(rows);
@@ -45,8 +44,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Check for duplicate username
-    const [existing] = await pool.query<RowDataPacket[]>(
-      "SELECT staff_id FROM staff WHERE username = ?",
+    const { rows: existing } = await pool.query(
+      "SELECT staff_id FROM staff WHERE username = $1",
       [username]
     );
     if (existing.length > 0) {
@@ -55,11 +54,11 @@ export async function POST(req: NextRequest) {
 
     const hashedPassword = await hashPassword(password);
 
-    const [result]: any = await pool.query(
-      "INSERT INTO staff (full_name, role, username, password_hash, created_at, updated_at) VALUES (?,?,?,?,NOW(),NOW())",
+    const { rows } = await pool.query(
+      "INSERT INTO staff (full_name, role, username, password_hash, created_at, updated_at) VALUES ($1,$2,$3,$4,NOW(),NOW()) RETURNING staff_id",
       [full_name, role, username, hashedPassword]
     );
-    return NextResponse.json({ staff_id: result.insertId }, { status: 201 });
+    return NextResponse.json({ staff_id: rows[0].staff_id }, { status: 201 });
   } catch (error) {
     console.error("Staff POST error:", error);
     return NextResponse.json({ error: "Failed to create staff" }, { status: 500 });
@@ -91,17 +90,17 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT staff_id, is_inactive FROM staff WHERE staff_id = ?",
+    const { rows } = await pool.query(
+      "SELECT staff_id, is_inactive FROM staff WHERE staff_id = $1",
       [staff_id]
     );
     if (rows.length === 0) {
       return NextResponse.json({ error: "Staff not found" }, { status: 404 });
     }
 
-    const newStatus = action === "deactivate" ? 1 : 0;
-    await pool.query<ResultSetHeader>(
-      "UPDATE staff SET is_inactive = ?, updated_at = NOW() WHERE staff_id = ?",
+    const newStatus = action === "deactivate";
+    await pool.query(
+      "UPDATE staff SET is_inactive = $1, updated_at = NOW() WHERE staff_id = $2",
       [newStatus, staff_id]
     );
 

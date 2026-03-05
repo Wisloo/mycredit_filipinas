@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { getSession, verifyPassword, hashPassword } from "@/lib/auth";
-import { RowDataPacket } from "mysql2";
 
 export async function PATCH(req: NextRequest) {
   try {
@@ -35,17 +34,17 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Fetch current password hash based on role
-    let rows: RowDataPacket[];
+    let rows;
     if (session.role === "user") {
-      [rows] = await pool.query<RowDataPacket[]>(
-        "SELECT password_hash FROM users WHERE user_id = ?",
+      ({ rows } = await pool.query(
+        "SELECT password_hash FROM users WHERE user_id = $1",
         [session.id]
-      );
+      ));
     } else {
-      [rows] = await pool.query<RowDataPacket[]>(
-        "SELECT password_hash FROM staff WHERE staff_id = ?",
+      ({ rows } = await pool.query(
+        "SELECT password_hash FROM staff WHERE staff_id = $1",
         [session.id]
-      );
+      ));
     }
 
     if (rows.length === 0) {
@@ -65,12 +64,12 @@ export async function PATCH(req: NextRequest) {
     const newHash = await hashPassword(new_password);
     if (session.role === "user") {
       await pool.query(
-        "UPDATE users SET password_hash = ?, updated_at = NOW() WHERE user_id = ?",
+        "UPDATE users SET password_hash = $1, updated_at = NOW() WHERE user_id = $2",
         [newHash, session.id]
       );
     } else {
       await pool.query(
-        "UPDATE staff SET password_hash = ?, updated_at = NOW() WHERE staff_id = ?",
+        "UPDATE staff SET password_hash = $1, updated_at = NOW() WHERE staff_id = $2",
         [newHash, session.id]
       );
     }

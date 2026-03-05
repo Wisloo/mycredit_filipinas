@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { RowDataPacket } from "mysql2";
 
 export async function GET() {
   try {
@@ -10,35 +9,28 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [[pendingLoansRow], [pendingPaymentsRow], [overdueLoansRow]] =
+    const [pendingLoansRes, pendingPaymentsRes, overdueLoansRes] =
       await Promise.all([
-        pool.query<RowDataPacket[]>(
-          "SELECT COUNT(*) AS count FROM loans WHERE loan_status = 'Pending'",
-          []
+        pool.query(
+          "SELECT COUNT(*) AS count FROM loans WHERE loan_status = 'Pending'"
         ),
-        pool.query<RowDataPacket[]>(
-          "SELECT COUNT(*) AS count FROM loan_payments WHERE payment_status = 'Pending'",
-          []
+        pool.query(
+          "SELECT COUNT(*) AS count FROM loan_payments WHERE payment_status = 'Pending'"
         ),
-        pool.query<RowDataPacket[]>(
+        pool.query(
           `SELECT COUNT(*) AS count
            FROM loan_schedules ls
            JOIN loans l ON ls.loan_id = l.loan_id
            WHERE ls.status IN ('Unpaid', 'Partial')
-             AND ls.due_date < CURDATE()
-             AND l.loan_status = 'Active'`,
-          []
+             AND ls.due_date < CURRENT_DATE
+             AND l.loan_status = 'Active'`
         ),
-      ]) as [RowDataPacket[], RowDataPacket[], RowDataPacket[]];
+      ]);
 
     return NextResponse.json({
-      pendingLoans: Number((pendingLoansRow as RowDataPacket[])[0]?.count ?? 0),
-      pendingPayments: Number(
-        (pendingPaymentsRow as RowDataPacket[])[0]?.count ?? 0
-      ),
-      overdueSchedules: Number(
-        (overdueLoansRow as RowDataPacket[])[0]?.count ?? 0
-      ),
+      pendingLoans: Number(pendingLoansRes.rows[0]?.count ?? 0),
+      pendingPayments: Number(pendingPaymentsRes.rows[0]?.count ?? 0),
+      overdueSchedules: Number(overdueLoansRes.rows[0]?.count ?? 0),
     });
   } catch (error) {
     console.error("Notifications error:", error);

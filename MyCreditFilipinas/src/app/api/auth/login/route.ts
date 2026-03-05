@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { verifyPassword, createToken } from "@/lib/auth";
-import { RowDataPacket } from "mysql2";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, role } = await req.json();
+    const { email: rawEmail, password, role } = await req.json();
+    const email = rawEmail?.toString().toLowerCase().trim();
 
     if (!email || !password || !role) {
       return NextResponse.json(
@@ -15,8 +15,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (role === "user") {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        "SELECT user_id, first_name, last_name, email_address, password_hash, is_inactive FROM users WHERE email_address = ?",
+      const { rows } = await pool.query(
+        "SELECT user_id, first_name, last_name, email_address, password_hash, is_inactive FROM users WHERE email_address = $1",
         [email]
       );
 
@@ -77,8 +77,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (role === "staff") {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        "SELECT staff_id, full_name, username, password_hash, role, is_inactive FROM staff WHERE username = ?",
+      const { rows } = await pool.query(
+        "SELECT staff_id, full_name, username, password_hash, role, is_inactive FROM staff WHERE username = $1",
         [email]
       );
 

@@ -19,7 +19,7 @@ export async function GET(
     }
 
     // Fetch loan with type, purpose, borrower info
-    const [loanRows]: any = await pool.query(
+    const { rows: loanRows } = await pool.query(
       `SELECT l.*,
               lt.loan_type_name AS loan_type,
               lp.loan_purpose_description AS loan_purpose,
@@ -31,7 +31,7 @@ export async function GET(
        LEFT JOIN loan_purposes lp ON l.loan_purpose_id = lp.loan_purpose_id
        LEFT JOIN users u ON l.user_id = u.user_id
        LEFT JOIN staff s ON l.processed_by = s.staff_id
-       WHERE l.loan_id = ?`,
+       WHERE l.loan_id = $1`,
       [loanId]
     );
 
@@ -47,40 +47,35 @@ export async function GET(
     }
 
     // Fetch payments, schedules, releases, rejection in parallel
-    const [
-      [paymentRows],
-      [scheduleRows],
-      [releaseRows],
-      [rejectRows],
-    ]: any = await Promise.all([
+    const [paymentRes, scheduleRes, releaseRes, rejectRes] = await Promise.all([
       pool.query(
         `SELECT payment_id, payment_date, amount_paid, penalty_amount,
                 payment_method, payment_status, transaction_id, attachment_url, remarks, created_at
-         FROM loan_payments WHERE loan_id = ? ORDER BY payment_date DESC`,
+         FROM loan_payments WHERE loan_id = $1 ORDER BY payment_date DESC`,
         [loanId]
       ),
       pool.query(
         `SELECT schedule_id, due_date, scheduled_amount, paid_amount, status
-         FROM loan_schedules WHERE loan_id = ? ORDER BY due_date ASC`,
+         FROM loan_schedules WHERE loan_id = $1 ORDER BY due_date ASC`,
         [loanId]
       ),
       pool.query(
         `SELECT release_id, release_date, amount_released, reference_no, created_at
-         FROM loan_releases WHERE loan_id = ? ORDER BY release_date DESC`,
+         FROM loan_releases WHERE loan_id = $1 ORDER BY release_date DESC`,
         [loanId]
       ),
       pool.query(
-        `SELECT date_rejected, rejected_reason FROM \`reject\` WHERE loan_id = ?`,
+        `SELECT date_rejected, rejected_reason FROM "reject" WHERE loan_id = $1`,
         [loanId]
       ),
     ]);
 
     return NextResponse.json({
       ...loan,
-      payments: paymentRows,
-      schedules: scheduleRows,
-      releases: releaseRows,
-      rejection: rejectRows[0] || null,
+      payments: paymentRes.rows,
+      schedules: scheduleRes.rows,
+      releases: releaseRes.rows,
+      rejection: rejectRes.rows[0] || null,
     });
   } catch (error) {
     console.error("Loan detail GET error:", error);
@@ -118,8 +113,8 @@ export async function PATCH(
     }
 
     // Fetch full loan details
-    const [rows]: any = await pool.query(
-      "SELECT * FROM loans WHERE loan_id = ?",
+    const { rows } = await pool.query(
+      "SELECT * FROM loans WHERE loan_id = $1",
       [loanId]
     );
 
@@ -133,21 +128,22 @@ export async function PATCH(
     if (action === "update") {
       const updates: string[] = [];
       const values: any[] = [];
+      let paramIdx = 1;
 
       if (body.fees !== undefined) {
-        updates.push("fees = ?");
+        updates.push(`fees = $${paramIdx++}`);
         values.push(Number(body.fees));
       }
       if (body.profit !== undefined) {
-        updates.push("profit = ?");
+        updates.push(`profit = $${paramIdx++}`);
         values.push(Number(body.profit));
       }
       if (body.amortization !== undefined) {
-        updates.push("amortization = ?");
+        updates.push(`amortization = $${paramIdx++}`);
         values.push(Number(body.amortization));
       }
       if (body.interest_rate !== undefined) {
-        updates.push("interest_rate = ?");
+        updates.push(`interest_rate = $${paramIdx++}`);
         values.push(Number(body.interest_rate));
       }
 
@@ -159,7 +155,7 @@ export async function PATCH(
       values.push(loanId);
 
       await pool.query(
-        `UPDATE loans SET ${updates.join(", ")} WHERE loan_id = ?`,
+        `UPDATE loans SET ${updates.join(", ")} WHERE loan_id = $${paramIdx}`,
         values
       );
 
@@ -175,7 +171,7 @@ export async function PATCH(
         );
       }
       await pool.query(
-        `UPDATE loans SET loan_status = 'Defaulted', updated_at = NOW() WHERE loan_id = ?`,
+        `UPDATE loans SET loan_status = 'Defaulted', updated_at = NOW() WHERE loan_id = $1`,
         [loanId]
       );
       return NextResponse.json({
@@ -194,7 +190,7 @@ export async function PATCH(
         );
       }
       await pool.query(
-        `UPDATE loans SET loan_status = 'Active', updated_at = NOW() WHERE loan_id = ?`,
+        `UPDATE loans SET loan_status = 'Active', updated_at = NOW() WHERE loan_id = $1`,
         [loanId]
       );
       return NextResponse.json({
@@ -223,13 +219,15 @@ export async function PATCH(
       }
 
       await pool.query(
-        `UPDATE loans SET loan_status = 'Denied', processed_by = ?, decision_date = NOW(), updated_at = NOW() WHERE loan_id = ?`,
+        `UPDATE loans SET loan_status = 'Denied', processed_by = $1, decision_date = NOW(), updated_at = NOW() WHERE loan_id = $2`,
         [session.id, loanId]
       );
 
       try {
         await pool.query(
-          "INSERT INTO `reject` (loan_id, date_rejected, rejected_reason) VALUES (?, NOW(), ?) ON DUPLICATE KEY UPDATE date_rejected = NOW(), rejected_reason = VALUES(rejected_reason)",
+          `INSERT INTO "reject" (loan_id, date_rejected, rejected_reason)
+           VALUES ($1, NOW(), $2)
+           ON CONFLICT (loan_id) DO UPDATE SET date_rejected = NOW(), rejected_reason = $2`,
           [loanId, reason]
         );
       } catch {
@@ -245,8 +243,8 @@ export async function PATCH(
 
     // If approved: set Active, generate schedule, create release record
     // First check if user is inactive — cannot approve loan for deactivated user
-    const [userCheck]: any = await pool.query(
-      "SELECT is_inactive FROM users WHERE user_id = ?",
+    const { rows: userCheck } = await pool.query(
+      "SELECT is_inactive FROM users WHERE user_id = $1",
       [loan.user_id]
     );
     if (userCheck.length > 0 && userCheck[0].is_inactive) {
@@ -274,21 +272,20 @@ export async function PATCH(
     await pool.query(
       `UPDATE loans SET
         loan_status = 'Active',
-        processed_by = ?,
+        processed_by = $1,
         decision_date = NOW(),
         date_released = NOW(),
-        term_due = DATE_ADD(NOW(), INTERVAL ? MONTH),
-        amortization = ?,
-        fees = ?,
-        profit = ?,
+        term_due = NOW() + make_interval(months => $2),
+        amortization = $3,
+        fees = $4,
+        profit = $5,
         updated_at = NOW()
-       WHERE loan_id = ?`,
+       WHERE loan_id = $6`,
       [session.id, termMonths, amortization.toFixed(2), fees, profit, loanId]
     );
 
     // Generate payment schedule
     const now = new Date();
-    const scheduleInterval = frequency === "bi-monthly" ? 0.5 : 1;
     const scheduledAmount = frequency === "bi-monthly" ? amortization / 2 : amortization;
     const totalPayments = frequency === "bi-monthly" ? termMonths * 2 : termMonths;
 
@@ -303,7 +300,7 @@ export async function PATCH(
 
       await pool.query(
         `INSERT INTO loan_schedules (loan_id, due_date, scheduled_amount, paid_amount, status)
-         VALUES (?, ?, ?, 0, 'Unpaid')`,
+         VALUES ($1, $2, $3, 0, 'Unpaid')`,
         [loanId, dueDateStr, scheduledAmount.toFixed(2)]
       );
     }
@@ -312,7 +309,7 @@ export async function PATCH(
     const refNo = `REL-${loanId}-${Date.now().toString(36).toUpperCase()}`;
     await pool.query(
       `INSERT INTO loan_releases (loan_id, release_date, amount_released, reference_no, released_by_ceo_id, created_at, updated_at)
-       VALUES (?, CURDATE(), ?, ?, ?, NOW(), NOW())`,
+       VALUES ($1, CURRENT_DATE, $2, $3, $4, NOW(), NOW())`,
       [loanId, principal, refNo, session.id]
     );
 

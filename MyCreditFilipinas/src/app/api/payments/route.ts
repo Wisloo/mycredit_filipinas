@@ -20,13 +20,13 @@ export async function GET(req: NextRequest) {
     const effectiveUserId = session.role === "user" ? String(session.id) : userId;
 
     if (effectiveUserId) {
-      const [rows] = await pool.query(
+      const { rows } = await pool.query(
         `SELECT lp.payment_id, lp.loan_id, lp.payment_date, lp.amount_paid,
                 lp.penalty_amount, lp.payment_method, lp.payment_status,
-                lp.transaction_id AS reference_number, lp.remarks, lp.created_at
+                lp.transaction_id AS reference_number, lp.attachment_url, lp.remarks, lp.created_at
          FROM loan_payments lp
          JOIN loans l ON lp.loan_id = l.loan_id
-         WHERE l.user_id = ?
+         WHERE l.user_id = $1
          ORDER BY lp.payment_date DESC`,
         [effectiveUserId]
       );
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const [rows] = await pool.query(
+    const { rows } = await pool.query(
       `SELECT lp.payment_id, lp.loan_id, lp.payment_date, lp.amount_paid,
               lp.penalty_amount, lp.payment_method, lp.payment_status,
               lp.transaction_id AS reference_number, lp.attachment_url,
@@ -65,13 +65,14 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { loan_id, payment_date, amount_paid, penalty_amount, payment_method, payment_status, transaction_id, remarks } = body;
-    const [result]: any = await pool.query(
+    const { rows } = await pool.query(
       `INSERT INTO loan_payments (loan_id, payment_date, amount_paid, penalty_amount,
         payment_method, payment_status, transaction_id, remarks, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,NOW(),NOW())`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),NOW())
+       RETURNING payment_id`,
       [loan_id, payment_date, amount_paid, penalty_amount, payment_method, payment_status, transaction_id, remarks]
     );
-    return NextResponse.json({ payment_id: result.insertId }, { status: 201 });
+    return NextResponse.json({ payment_id: rows[0].payment_id }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: "Failed to create payment" }, { status: 500 });
   }

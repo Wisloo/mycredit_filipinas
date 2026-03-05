@@ -9,10 +9,10 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [types] = await pool.query(
+    const { rows: types } = await pool.query(
       "SELECT loan_type_id, loan_type_name FROM loan_types ORDER BY loan_type_name"
     );
-    const [purposes] = await pool.query(
+    const { rows: purposes } = await pool.query(
       "SELECT loan_purpose_id, loan_purpose_description FROM loan_purposes ORDER BY CASE WHEN loan_purpose_description = 'Others' THEN 1 ELSE 0 END, loan_purpose_description"
     );
     return NextResponse.json({ types, purposes });

@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { ResultSetHeader, RowDataPacket } from "mysql2";
-
-const ALLOWED_AMOUNTS = [5000, 10000, 15000, 20000, 25000, 30000];
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,6 +18,8 @@ export async function POST(req: NextRequest) {
       release_frequency,
       custom_purpose,
     } = body;
+
+    const ALLOWED_AMOUNTS = [5000, 10000, 15000, 20000, 25000, 30000];
 
     // Validate required fields
     if (!loan_type_id || !loan_purpose_id || !principal_amt || !term_months) {
@@ -45,8 +44,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Prevent applying if user already has a Pending or Active loan
-    const [existingLoans] = await pool.query<RowDataPacket[]>(
-      "SELECT loan_id, loan_status FROM loans WHERE user_id = ? AND loan_status IN ('Pending', 'Active', 'Approved') LIMIT 1",
+    const { rows: existingLoans } = await pool.query(
+      "SELECT loan_id, loan_status FROM loans WHERE user_id = $1 AND loan_status IN ('Pending', 'Active', 'Approved') LIMIT 1",
       [session.id]
     );
     if (existingLoans.length > 0) {
@@ -65,12 +64,13 @@ export async function POST(req: NextRequest) {
       (Number(principal_amt) * monthly_rate) /
       (1 - Math.pow(1 + monthly_rate, -Number(term_months)));
 
-    const [result] = await pool.query<ResultSetHeader>(
+    const { rows } = await pool.query(
       `INSERT INTO loans (
         user_id, loan_type_id, loan_purpose_id, principal_amt,
         term_months, amortization, interest_rate, current_balance,
         loan_status, release_frequency, remarks, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, NOW(), NOW())`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Pending', $9, $10, NOW(), NOW())
+      RETURNING loan_id`,
       [
         session.id,
         loan_type_id,
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         message: "Loan application submitted successfully",
-        loan_id: result.insertId,
+        loan_id: rows[0].loan_id,
       },
       { status: 201 }
     );

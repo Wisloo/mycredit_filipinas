@@ -15,8 +15,8 @@ export async function GET(req: NextRequest) {
     // Regular users can only fetch their own profile — ignore id param
     if (session.role === "user") {
       const userId = session.id;
-      const [rows] = await pool.query(
-        "SELECT user_id, first_name, middle_name, last_name, suffix, gender, birthdate, email_address, created_at FROM users WHERE user_id = ?",
+      const { rows } = await pool.query(
+        "SELECT user_id, first_name, middle_name, last_name, suffix, gender, birthdate, email_address, created_at FROM users WHERE user_id = $1",
         [userId]
       );
       return NextResponse.json(rows);
@@ -24,14 +24,14 @@ export async function GET(req: NextRequest) {
 
     // Staff can fetch any user or list all (admin/approver)
     if (id) {
-      const [rows] = await pool.query(
-        "SELECT user_id, first_name, middle_name, last_name, suffix, gender, birthdate, email_address, created_at FROM users WHERE user_id = ?",
+      const { rows } = await pool.query(
+        "SELECT user_id, first_name, middle_name, last_name, suffix, gender, birthdate, email_address, created_at FROM users WHERE user_id = $1",
         [id]
       );
       return NextResponse.json(rows);
     }
 
-    const [rows] = await pool.query(
+    const { rows } = await pool.query(
       "SELECT user_id, first_name, middle_name, last_name, suffix, gender, birthdate, email_address, is_inactive, created_at FROM users ORDER BY created_at DESC"
     );
     return NextResponse.json(rows);
@@ -58,11 +58,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const [result]: any = await pool.query(
-      "INSERT INTO users (first_name, middle_name, last_name, suffix, gender, birthdate, facebook, email_address, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,NOW(),NOW())",
+    const { rows } = await pool.query(
+      "INSERT INTO users (first_name, middle_name, last_name, suffix, gender, birthdate, facebook, email_address, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),NOW()) RETURNING user_id",
       [first_name, middle_name, last_name, suffix, gender, birthdate, facebook, email_address]
     );
-    return NextResponse.json({ user_id: result.insertId }, { status: 201 });
+    return NextResponse.json({ user_id: rows[0].user_id }, { status: 201 });
   } catch (error) {
     console.error("Users POST error:", error);
     return NextResponse.json({ error: "Failed to create user" }, { status: 500 });

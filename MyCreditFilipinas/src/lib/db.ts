@@ -1,25 +1,20 @@
-import mysql from "mysql2/promise";
+import { Pool } from "pg";
 
-// Validate required environment variables at startup
-const requiredEnvVars = ["DB_HOST", "DB_USER", "DB_NAME"] as const;
-for (const envVar of requiredEnvVars) {
-  if (!process.env[envVar]) {
-    throw new Error(
-      `Missing required environment variable: ${envVar}. ` +
-        "Copy .env.example to .env.local and fill in your database credentials."
-    );
-  }
+if (!process.env.DATABASE_URL) {
+  throw new Error(
+    "Missing required environment variable: DATABASE_URL. " +
+      "Set it to your Supabase PostgreSQL connection string."
+  );
 }
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT) || 3306,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+  // Keep max low for Vercel serverless — each function instance creates its own pool.
+  // Supabase free tier allows 60 total connections.
+  max: 2,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
 
 export default pool;

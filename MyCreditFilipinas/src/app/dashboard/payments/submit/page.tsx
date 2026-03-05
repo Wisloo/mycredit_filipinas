@@ -32,6 +32,7 @@ export default function SubmitPaymentPage() {
     remarks: "",
   });
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -58,17 +59,17 @@ export default function SubmitPaymentPage() {
     setSubmitting(true);
 
     try {
+      const formData = new FormData();
+      formData.append("loan_id", form.loan_id);
+      formData.append("amount_paid", form.amount_paid);
+      formData.append("payment_method", form.payment_method);
+      if (form.transaction_id) formData.append("transaction_id", form.transaction_id);
+      if (form.remarks) formData.append("remarks", form.remarks);
+      if (receiptFile) formData.append("receipt", receiptFile);
+
       const res = await fetch("/api/payments/submit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          loan_id: Number(form.loan_id),
-          amount_paid: Number(form.amount_paid),
-          payment_method: form.payment_method,
-          transaction_id: form.transaction_id || undefined,
-          remarks: form.remarks || undefined,
-          receipt_image: receiptPreview || undefined,
-        }),
+        body: formData,
       });
 
       const data = await res.json();
@@ -320,6 +321,7 @@ export default function SubmitPaymentPage() {
                         if (items[i].type.startsWith("image/")) {
                           const file = items[i].getAsFile();
                           if (file) {
+                            setReceiptFile(file);
                             const reader = new FileReader();
                             reader.onload = (ev) => {
                               setReceiptPreview(ev.target?.result as string);
@@ -343,6 +345,7 @@ export default function SubmitPaymentPage() {
                             setError("Receipt image must be less than 5MB");
                             return;
                           }
+                          setReceiptFile(file);
                           const reader = new FileReader();
                           reader.onload = (ev) => {
                             setReceiptPreview(ev.target?.result as string);
@@ -363,6 +366,7 @@ export default function SubmitPaymentPage() {
                           onClick={(e) => {
                             e.stopPropagation();
                             setReceiptPreview(null);
+                            setReceiptFile(null);
                           }}
                           className="text-xs text-red-500 hover:text-red-700 font-medium"
                         >
