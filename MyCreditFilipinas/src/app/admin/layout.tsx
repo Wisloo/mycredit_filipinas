@@ -12,13 +12,11 @@ import Sidebar, {
 } from "@/components/Sidebar";
 import MobileNav from "@/components/MobileNav";
 
-const allSidebarLinks = [
-  { href: "/admin", label: "Overview", icon: <IconDashboard />, roles: ["admin", "approver"] },
-  { href: "/admin/users", label: "Users", icon: <IconUsers />, roles: ["admin"] },
-  { href: "/admin/loans", label: "Loans", icon: <IconLoans />, roles: ["admin", "approver"] },
-  { href: "/admin/payments", label: "Payments", icon: <IconPayments />, roles: ["admin", "approver"] },
-  { href: "/admin/staff", label: "Staff", icon: <IconStaff />, roles: ["admin"] },
-];
+interface NotifCounts {
+  pendingLoans: number;
+  pendingPayments: number;
+  overdueSchedules: number;
+}
 
 export default function AdminLayout({
   children,
@@ -28,6 +26,11 @@ export default function AdminLayout({
   const router = useRouter();
   const [user, setUser] = useState<{ name: string; role: string; id: number } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notifs, setNotifs] = useState<NotifCounts>({
+    pendingLoans: 0,
+    pendingPayments: 0,
+    overdueSchedules: 0,
+  });
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -35,6 +38,13 @@ export default function AdminLayout({
       .then((data) => {
         if (data.user && data.user.role !== "user") {
           setUser(data.user);
+          // Fetch notification counts for badge display
+          fetch("/api/admin/notifications")
+            .then((r) => r.json())
+            .then((n) => {
+              if (n && typeof n.pendingLoans === "number") setNotifs(n);
+            })
+            .catch(() => {});
         } else {
           router.push("/login");
         }
@@ -54,16 +64,40 @@ export default function AdminLayout({
     );
   }
 
+  const allSidebarLinks = [
+    { href: "/admin", label: "Overview", icon: <IconDashboard />, roles: ["admin", "approver"] },
+    { href: "/admin/users", label: "Users", icon: <IconUsers />, roles: ["admin"] },
+    {
+      href: "/admin/loans",
+      label: "Loans",
+      icon: <IconLoans />,
+      roles: ["admin", "approver"],
+      badge: notifs.pendingLoans > 0 ? notifs.pendingLoans : undefined,
+    },
+    {
+      href: "/admin/payments",
+      label: "Payments",
+      icon: <IconPayments />,
+      roles: ["admin", "approver"],
+      badge: notifs.pendingPayments > 0 ? notifs.pendingPayments : undefined,
+    },
+    { href: "/admin/staff", label: "Staff", icon: <IconStaff />, roles: ["admin"] },
+  ];
+
+  const filteredLinks = allSidebarLinks.filter((l) =>
+    l.roles.includes(user?.role || "")
+  );
+
   return (
     <div className="min-h-screen bg-cream-100">
       <Navbar user={user} />
       <div className="flex">
-        <Sidebar links={allSidebarLinks.filter(l => l.roles.includes(user?.role || ""))} />
+        <Sidebar links={filteredLinks} />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8">
           {children}
         </main>
       </div>
-      {user && <MobileNav links={allSidebarLinks.filter(l => l.roles.includes(user?.role || ""))} user={user} />}
+      {user && <MobileNav links={filteredLinks} user={user} />}
     </div>
   );
 }

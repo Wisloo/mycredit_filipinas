@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Pagination from "@/components/Pagination";
+
+const PAGE_SIZE = 15;
 
 interface User {
   user_id: number;
@@ -20,6 +23,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     fetch("/api/users")
@@ -34,6 +38,8 @@ export default function AdminUsersPage() {
         .toLowerCase()
         .includes(search.toLowerCase())
   );
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   if (loading) {
     return <div className="text-gray-500 py-8 text-center">Loading users...</div>;
@@ -50,14 +56,14 @@ export default function AdminUsersPage() {
           type="text"
           placeholder="Search users..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ph-blue-500 focus:border-transparent outline-none text-sm w-full sm:w-64 text-gray-900"
         />
       </div>
 
       {/* Mobile: cards */}
       <div className="space-y-3 lg:hidden">
-        {filtered.map((u) => (
+        {paginated.map((u) => (
           <div key={u.user_id} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 hover:shadow-md hover:-translate-y-1 transition-all duration-200">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 bg-ph-blue-100 text-ph-blue-700 rounded-full flex items-center justify-center font-semibold text-sm">
@@ -109,7 +115,7 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map((u) => (
+              {paginated.map((u) => (
                 <tr key={u.user_id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{u.user_id}</td>
                   <td className="px-4 py-3">
@@ -145,6 +151,13 @@ export default function AdminUsersPage() {
           <div className="text-center py-8 text-gray-500 text-sm">No users match your search</div>
         )}
       </div>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={filtered.length}
+        pageSize={PAGE_SIZE}
+        onPage={setPage}
+      />
     </div>
   );
 }

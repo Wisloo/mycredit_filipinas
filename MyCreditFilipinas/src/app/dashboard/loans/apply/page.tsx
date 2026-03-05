@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { CheckCircle, ChevronLeft, FileText } from "lucide-react";
 
 interface LoanType {
   loan_type_id: number;
@@ -101,34 +102,56 @@ export default function ApplyLoanPage() {
 
   if (loading) {
     return (
-      <div className="text-gray-500 py-8 text-center">
-        Loading loan options...
+      <div className="space-y-5 animate-fade-in">
+        <div className="flex items-center gap-3">
+          <div className="h-5 w-5 bg-gray-200 rounded animate-pulse" />
+          <div className="space-y-1.5">
+            <div className="h-7 w-52 bg-gray-200 rounded animate-pulse" />
+            <div className="h-4 w-72 bg-gray-100 rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="space-y-2">
+                <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+                <div className="h-11 w-full bg-gray-100 rounded-xl animate-pulse" />
+              </div>
+            ))}
+            <div className="h-12 w-full bg-ph-red-100 rounded-xl animate-pulse mt-2" />
+          </div>
+          <div className="bg-indigo-100/60 rounded-2xl h-72 animate-pulse" />
+        </div>
       </div>
     );
   }
 
   if (success) {
     return (
-      <div className="max-w-lg mx-auto text-center py-12">
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-8">
-          <div className="text-5xl mb-4">✅</div>
-          <h2 className="text-xl font-bold text-green-800 mb-2">
+      <div className="max-w-lg mx-auto text-center py-12 animate-fade-in">
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-10">
+          <div className="flex justify-center mb-5">
+            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center shadow-sm">
+              <CheckCircle size={42} className="text-emerald-500" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-extrabold text-emerald-900 mb-2">
             Application Submitted!
           </h2>
-          <p className="text-green-700 text-sm mb-6">
-            Your loan application has been submitted for review. You&apos;ll be
-            notified once it&apos;s approved.
+          <p className="text-emerald-700 text-sm mb-7 leading-relaxed">
+            Your loan application has been submitted for review. Our team will
+            evaluate it and you&apos;ll be notified of the outcome shortly.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               href="/dashboard/loans"
-              className="px-6 py-2.5 bg-ph-blue-500 text-white rounded-lg font-medium hover:bg-ph-blue-600 transition-colors text-sm"
+              className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm shadow-sm"
             >
-              View My Loans
+              <FileText size={15} /> View My Loans
             </Link>
             <Link
               href="/dashboard"
-              className="px-6 py-2.5 bg-white border border-ph-blue-200 text-ph-blue-600 rounded-lg font-medium hover:bg-ph-blue-50 transition-colors text-sm"
+              className="inline-flex items-center justify-center px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm"
             >
               Back to Dashboard
             </Link>
@@ -143,21 +166,9 @@ export default function ApplyLoanPage() {
       <div className="flex items-center gap-3 mb-6">
         <Link
           href="/dashboard/loans"
-          className="text-gray-400 hover:text-ph-blue-500 transition-colors"
+          className="text-gray-400 hover:text-indigo-500 transition-colors"
         >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15.75 19.5L8.25 12l7.5-7.5"
-            />
-          </svg>
+          <ChevronLeft size={20} />
         </Link>
         <div>
           <h1 className="text-2xl font-extrabold text-gray-900">Apply for a Loan</h1>

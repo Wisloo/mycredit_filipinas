@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { Phone, Landmark, Users, FileText, MapPin, AlertCircle, User } from "lucide-react";
 
 interface UserDetail {
   user_id: number;
@@ -82,7 +83,7 @@ function Section({
   empty,
 }: {
   title: string;
-  icon: string;
+  icon: React.ReactNode;
   children: React.ReactNode;
   empty?: boolean;
 }) {
@@ -90,7 +91,7 @@ function Section({
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
         <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-          <span>{icon}</span> {title}
+          <span className="text-gray-400">{icon}</span> {title}
         </h3>
       </div>
       <div className="p-6">
@@ -150,7 +151,11 @@ export default function AdminUserDetailPage() {
   if (error || !user) {
     return (
       <div className="text-center py-20">
-        <p className="text-5xl mb-4">😕</p>
+        <div className="flex justify-center mb-4">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+            <AlertCircle size={32} className="text-gray-400" />
+          </div>
+        </div>
         <h2 className="text-lg font-semibold text-gray-900 mb-1">
           User not found
         </h2>
@@ -258,7 +263,7 @@ export default function AdminUserDetailPage() {
 
       {/* Personal Info + Profile */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <Section title="Personal Information" icon="👤">
+        <Section title="Personal Information" icon={<User size={14} />}>
           <div className="grid grid-cols-2 gap-4">
             <InfoRow label="First Name" value={user.first_name} />
             <InfoRow label="Middle Name" value={user.middle_name} />
@@ -315,7 +320,7 @@ export default function AdminUserDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         <Section
           title="Contact Numbers"
-          icon="📱"
+          icon={<Phone size={14} />}
           empty={user.contacts.length === 0}
         >
           <div className="space-y-3">
@@ -337,7 +342,7 @@ export default function AdminUserDetailPage() {
 
         <Section
           title="Bank Accounts"
-          icon="🏦"
+          icon={<Landmark size={14} />}
           empty={user.bank_accounts.length === 0}
         >
           <div className="space-y-3">
@@ -369,7 +374,7 @@ export default function AdminUserDetailPage() {
       <div className="mb-4">
         <Section
           title="Addresses"
-          icon="📍"
+          icon={<MapPin size={14} />}
           empty={user.addresses.length === 0}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -411,7 +416,7 @@ export default function AdminUserDetailPage() {
       <div className="mb-4">
         <Section
           title="References"
-          icon="👥"
+          icon={<Users size={14} />}
           empty={user.references.length === 0}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -432,8 +437,8 @@ export default function AdminUserDetailPage() {
                 </div>
                 <p className="text-sm font-bold text-gray-900">{r.name}</p>
                 <p className="text-xs text-gray-600 mt-1">{r.address}</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  📞 {r.contact_number}
+                <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                  <Phone size={11} className="shrink-0" /> {r.contact_number}
                 </p>
                 {r.verification_notes && (
                   <p className="text-xs text-gray-400 mt-1 italic">
@@ -450,7 +455,7 @@ export default function AdminUserDetailPage() {
       <div className="mb-4">
         <Section
           title="Loan History"
-          icon="📋"
+          icon={<FileText size={14} />}
           empty={user.loans.length === 0}
         >
           <div className="space-y-3">

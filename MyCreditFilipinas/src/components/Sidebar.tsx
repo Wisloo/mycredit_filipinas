@@ -7,6 +7,7 @@ interface SidebarLink {
   href: string;
   label: string;
   icon: React.ReactNode;
+  badge?: number;
 }
 
 interface SidebarProps {
@@ -41,9 +42,19 @@ export default function Sidebar({ links, collapsed }: SidebarProps) {
               <span className={`flex-shrink-0 w-5 h-5 mr-3 transition-colors duration-200 ${active ? "text-ph-blue-500" : "text-gray-400 group-hover:text-gray-600"}`}>
                 {link.icon}
               </span>
-              {!collapsed && <span>{link.label}</span>}
-              {active && !collapsed && (
-                <span className="ml-auto w-1.5 h-1.5 bg-ph-blue-500 rounded-full" />
+              {!collapsed && (
+                <>
+                  <span className="flex-1">{link.label}</span>
+                  {link.badge ? (
+                    <span className="ml-auto min-w-[1.25rem] h-5 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                      {link.badge > 99 ? "99+" : link.badge}
+                    </span>
+                  ) : (
+                    active && (
+                      <span className="ml-auto w-1.5 h-1.5 bg-ph-blue-500 rounded-full" />
+                    )
+                  )}
+                </>
               )}
             </Link>
           );

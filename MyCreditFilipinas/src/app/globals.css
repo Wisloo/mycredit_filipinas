@@ -133,3 +133,17 @@
   color: #0038A8;
 }
 
+/* ── Print styles ── */
+@media print {
+  body { background: white !important; }
+  * { box-shadow: none !important; animation: none !important; }
+  .print\:hidden { display: none !important; }
+
+  /* Ensure cards/sections render cleanly */
+  .bg-white, [class*="bg-gray-50"] { background: white !important; }
+  [class*="border"] { border-color: #e5e7eb !important; }
+
+  /* Page margin */
+  @page { margin: 1.5cm; }
+}
+

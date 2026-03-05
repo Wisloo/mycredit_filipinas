@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { Printer } from "lucide-react";
 
 /* ── Types ── */
 interface Schedule {
@@ -151,9 +152,18 @@ export default function UserLoanDetailPage() {
             Loan #{loan.loan_id}
           </h1>
         </div>
-        <span className={`px-3 py-1.5 rounded-full text-sm font-bold ${statusColors[loan.loan_status] || "bg-gray-100 text-gray-800"}`}>
-          {loan.loan_status}
-        </span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => window.print()}
+            className="print:hidden px-3 py-2 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-1.5 shadow-sm"
+          >
+            <Printer size={14} />
+            Print Statement
+          </button>
+          <span className={`px-3 py-1.5 rounded-full text-sm font-bold ${statusColors[loan.loan_status] || "bg-gray-100 text-gray-800"}`}>
+            {loan.loan_status}
+          </span>
+        </div>
       </div>
 
       {/* Denied Notice */}

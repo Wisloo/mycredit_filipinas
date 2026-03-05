@@ -108,6 +108,23 @@ export async function PATCH(
               [rows[0].loan_id]
             );
           }
+
+          // Update the oldest unpaid/partial schedule entry for this loan
+          const [scheduleRows]: any = await conn.query(
+            "SELECT schedule_id, scheduled_amount, paid_amount FROM loan_schedules WHERE loan_id = ? AND status IN ('Unpaid', 'Partial') ORDER BY due_date ASC LIMIT 1",
+            [rows[0].loan_id]
+          );
+          if (scheduleRows.length > 0) {
+            const sched = scheduleRows[0];
+            const newPaid = Number(sched.paid_amount) + amountPaid;
+            const scheduled = Number(sched.scheduled_amount);
+            const newSchedStatus =
+              newPaid >= scheduled - 0.01 ? "Paid" : "Partial";
+            await conn.query(
+              "UPDATE loan_schedules SET paid_amount = ?, status = ? WHERE schedule_id = ?",
+              [newPaid.toFixed(2), newSchedStatus, sched.schedule_id]
+            );
+          }
         }
       }
 

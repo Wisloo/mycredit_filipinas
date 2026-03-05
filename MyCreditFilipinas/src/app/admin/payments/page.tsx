@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Pagination from "@/components/Pagination";
+import { useToast } from "@/components/Toast";
+
+const PAGE_SIZE = 15;
 
 interface Payment {
   payment_id: number;
@@ -12,6 +16,7 @@ interface Payment {
   payment_status: string;
   reference_number: string;
   attachment_url: string | null;
+  remarks: string | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -21,15 +26,18 @@ const statusColors: Record<string, string> = {
 };
 
 export default function AdminPaymentsPage() {
+  const { toast } = useToast();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [actionModal, setActionModal] = useState<{
     payment: Payment;
     action: "verify" | "reject";
   } | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   const fetchPayments = () => {
     fetch("/api/payments")
@@ -45,6 +53,7 @@ export default function AdminPaymentsPage() {
   const handleAction = async () => {
     if (!actionModal) return;
     setProcessing(true);
+    setActionError("");
 
     try {
       const res = await fetch(
@@ -56,12 +65,22 @@ export default function AdminPaymentsPage() {
         }
       );
 
+      const data = await res.json();
       if (res.ok) {
+        toast(
+          actionModal.action === "verify"
+            ? `Payment #${actionModal.payment.payment_id} verified.`
+            : `Payment #${actionModal.payment.payment_id} rejected.`,
+          actionModal.action === "verify" ? "success" : "warning"
+        );
         setActionModal(null);
+        setActionError("");
         fetchPayments();
+      } else {
+        setActionError(data.error || "Action failed. Please try again.");
       }
     } catch {
-      // silent
+      setActionError("Network error. Please try again.");
     } finally {
       setProcessing(false);
     }
@@ -79,6 +98,31 @@ export default function AdminPaymentsPage() {
         .includes(search.toLowerCase());
     return matchStatus && matchSearch;
   });
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const downloadCSV = () => {
+    const headers = ["ID", "Loan ID", "Borrower", "Amount", "Date", "Method", "Reference", "Status", "Remarks"];
+    const rows = filtered.map((p) => [
+      p.payment_id,
+      p.loan_id,
+      `"${p.borrower_name || ""}"`,
+      Number(p.amount_paid),
+      new Date(p.payment_date).toLocaleDateString(),
+      `"${p.payment_method || ""}"`,
+      `"${p.reference_number || ""}"`,
+      p.payment_status,
+      `"${(p as any).remarks || ""}"`,
+    ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `payments_export_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (loading) {
     return (
@@ -102,13 +146,21 @@ export default function AdminPaymentsPage() {
             )}
           </p>
         </div>
-        <input
-          type="text"
-          placeholder="Search payments..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ph-blue-500 focus:border-transparent outline-none text-sm w-full sm:w-64 text-gray-900"
-        />
+        <div className="flex gap-2 items-center">
+          <button
+            onClick={downloadCSV}
+            className="px-3 py-2 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5 whitespace-nowrap"
+          >
+            ⬇ Export CSV
+          </button>
+          <input
+            type="text"
+            placeholder="Search payments..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ph-blue-500 focus:border-transparent outline-none text-sm w-full sm:w-64 text-gray-900"
+          />
+        </div>
       </div>
 
       {/* Status filters */}
@@ -116,7 +168,7 @@ export default function AdminPaymentsPage() {
         {["all", "Pending", "Verified", "Rejected"].map((s) => (
           <button
             key={s}
-            onClick={() => setFilter(s)}
+            onClick={() => { setFilter(s); setPage(1); }}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors ${
               filter === s
                 ? "bg-ph-blue-500 text-white"
@@ -135,7 +187,7 @@ export default function AdminPaymentsPage() {
 
       {/* Mobile: cards */}
       <div className="space-y-3 lg:hidden">
-        {filtered.map((p) => (
+        {paginated.map((p) => (
           <div
             key={p.payment_id}
             className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200"
@@ -243,6 +295,9 @@ export default function AdminPaymentsPage() {
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-500 uppercase">
                   Reference
                 </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-500 uppercase">
+                  Remarks
+                </th>
                 <th className="px-4 py-3 text-center text-sm font-semibold text-gray-500 uppercase">
                   Receipt
                 </th>
@@ -255,7 +310,7 @@ export default function AdminPaymentsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map((p) => (
+              {paginated.map((p) => (
                 <tr key={p.payment_id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">
                     {p.payment_id}
@@ -275,8 +330,9 @@ export default function AdminPaymentsPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-700">
                     {p.reference_number || "—"}
-                  </td>
-                  <td className="px-4 py-3 text-center">                    {p.attachment_url ? (
+                  </td>                  <td className="px-4 py-3 text-gray-500 text-xs max-w-[120px] truncate" title={p.remarks || ""}>
+                    {p.remarks || "—"}
+                  </td>                  <td className="px-4 py-3 text-center">                    {p.attachment_url ? (
                       <a
                         href={p.attachment_url}
                         target="_blank"
@@ -333,13 +389,20 @@ export default function AdminPaymentsPage() {
           </div>
         )}
       </div>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={filtered.length}
+        pageSize={PAGE_SIZE}
+        onPage={setPage}
+      />
 
       {/* Action Confirmation Modal */}
       {actionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/40"
-            onClick={() => !processing && setActionModal(null)}
+            onClick={() => { if (!processing) { setActionModal(null); setActionError(""); } }}
           />
           <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-2">
@@ -370,9 +433,15 @@ export default function AdminPaymentsPage() {
               )}
             </p>
 
+            {actionError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {actionError}
+              </div>
+            )}
+
             <div className="flex gap-3">
               <button
-                onClick={() => setActionModal(null)}
+                onClick={() => { setActionModal(null); setActionError(""); }}
                 disabled={processing}
                 className="flex-1 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
               >

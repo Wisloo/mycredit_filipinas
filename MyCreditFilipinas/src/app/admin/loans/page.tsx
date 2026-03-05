@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Pagination from "@/components/Pagination";
+import { useToast } from "@/components/Toast";
+
+const PAGE_SIZE = 15;
 
 interface Loan {
   loan_id: number;
@@ -28,16 +32,19 @@ const statusColors: Record<string, string> = {
 };
 
 export default function AdminLoansPage() {
+  const { toast } = useToast();
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [actionModal, setActionModal] = useState<{
     loan: Loan;
     action: "approve" | "deny";
   } | null>(null);
   const [denyReason, setDenyReason] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   const fetchLoans = () => {
     fetch("/api/loans")
@@ -50,9 +57,34 @@ export default function AdminLoansPage() {
     fetchLoans();
   }, []);
 
+  const downloadCSV = () => {
+    const headers = ["ID", "Borrower", "Type", "Purpose", "Principal", "Balance", "Term (mo)", "Rate", "Status", "Applied On"];
+    const rows = filtered.map((l) => [
+      l.loan_id,
+      `"${l.borrower_name || ""}"`,
+      `"${l.loan_type || ""}"`,
+      `"${l.loan_purpose || ""}"`,
+      Number(l.principal_amt),
+      Number(l.current_balance),
+      l.loan_term_months,
+      `${(Number(l.interest_rate) * 100).toFixed(0)}%`,
+      l.loan_status,
+      new Date(l.created_at).toLocaleDateString(),
+    ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `loans_export_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleAction = async () => {
     if (!actionModal) return;
     setProcessing(true);
+    setActionError("");
 
     try {
       const res = await fetch(`/api/loans/${actionModal.loan.loan_id}`, {
@@ -64,13 +96,23 @@ export default function AdminLoansPage() {
         }),
       });
 
+      const data = await res.json();
       if (res.ok) {
+        toast(
+          actionModal.action === "approve"
+            ? `Loan #${actionModal.loan.loan_id} approved successfully.`
+            : `Loan #${actionModal.loan.loan_id} denied.`,
+          actionModal.action === "approve" ? "success" : "warning"
+        );
         setActionModal(null);
         setDenyReason("");
+        setActionError("");
         fetchLoans();
+      } else {
+        setActionError(data.error || "Action failed. Please try again.");
       }
     } catch {
-      // silent
+      setActionError("Network error. Please try again.");
     } finally {
       setProcessing(false);
     }
@@ -83,6 +125,8 @@ export default function AdminLoansPage() {
       .includes(search.toLowerCase());
     return matchStatus && matchSearch;
   });
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const statuses = [
     "all",
@@ -117,13 +161,21 @@ export default function AdminLoansPage() {
             )}
           </p>
         </div>
-        <input
-          type="text"
-          placeholder="Search loans..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ph-blue-500 focus:border-transparent outline-none text-sm w-full sm:w-64 text-gray-900"
-        />
+        <div className="flex gap-2 items-center">
+          <button
+            onClick={downloadCSV}
+            className="px-3 py-2 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5 whitespace-nowrap"
+          >
+            ⬇ Export CSV
+          </button>
+          <input
+            type="text"
+            placeholder="Search loans..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ph-blue-500 focus:border-transparent outline-none text-sm w-full sm:w-64 text-gray-900"
+          />
+        </div>
       </div>
 
       {/* Status filters */}
@@ -131,7 +183,7 @@ export default function AdminLoansPage() {
         {statuses.map((s) => (
           <button
             key={s}
-            onClick={() => setFilter(s)}
+            onClick={() => { setFilter(s); setPage(1); }}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors ${
               filter === s
                 ? "bg-ph-blue-500 text-white"
@@ -150,7 +202,7 @@ export default function AdminLoansPage() {
 
       {/* Mobile: cards */}
       <div className="space-y-3 lg:hidden">
-        {filtered.map((l) => (
+        {paginated.map((l) => (
           <div
             key={l.loan_id}
             className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200"
@@ -257,7 +309,7 @@ export default function AdminLoansPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map((l) => (
+              {paginated.map((l) => (
                 <tr key={l.loan_id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">
                     {l.loan_id}
@@ -328,13 +380,20 @@ export default function AdminLoansPage() {
           </div>
         )}
       </div>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={filtered.length}
+        pageSize={PAGE_SIZE}
+        onPage={setPage}
+      />
 
       {/* Action Confirmation Modal */}
       {actionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/40"
-            onClick={() => !processing && setActionModal(null)}
+            onClick={() => { if (!processing) { setActionModal(null); setActionError(""); setDenyReason(""); } }}
           />
           <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-2">
@@ -377,11 +436,18 @@ export default function AdminLoansPage() {
               </div>
             )}
 
+            {actionError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {actionError}
+              </div>
+            )}
+
             <div className="flex gap-3">
               <button
                 onClick={() => {
                   setActionModal(null);
                   setDenyReason("");
+                  setActionError("");
                 }}
                 disabled={processing}
                 className="flex-1 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"

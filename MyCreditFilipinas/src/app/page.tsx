@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Landmark, Zap, Smartphone, ShieldCheck, Users, CheckCircle, BarChart3 } from "lucide-react";
 
 export default function Home() {
   return (
@@ -81,18 +82,20 @@ export default function Home() {
             {/* Feature cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
-                { icon: "🏦", title: "Low Interest", desc: "Competitive rates starting at 4% monthly" },
-                { icon: "⚡", title: "Fast Approval", desc: "Get approved within 24 hours" },
-                { icon: "📱", title: "100% Online", desc: "Apply and manage loans from anywhere" },
-                { icon: "🛡️", title: "Secure", desc: "Bank-level security for your data" },
-              ].map((f) => (
+                { Icon: Landmark,    title: "Low Interest",  desc: "Competitive rates starting at 4% monthly" },
+                { Icon: Zap,         title: "Fast Approval", desc: "Get approved within 24 hours" },
+                { Icon: Smartphone,  title: "100% Online",   desc: "Apply and manage loans from anywhere" },
+                { Icon: ShieldCheck, title: "Secure",        desc: "Bank-level security for your data" },
+              ].map(({ Icon, title, desc }) => (
                 <div
-                  key={f.title}
+                  key={title}
                   className="bg-white/[0.07] backdrop-blur-md rounded-2xl p-6 border border-white/[0.12] hover:bg-white/[0.14] hover:border-white/25 transition-all duration-300 group hover:-translate-y-1"
                 >
-                  <div className="text-3xl mb-3 group-hover:scale-110 transition-transform duration-300">{f.icon}</div>
-                  <h3 className="font-bold text-sm mb-1">{f.title}</h3>
-                  <p className="text-xs text-ph-blue-200/80 leading-relaxed">{f.desc}</p>
+                  <div className="mb-3 group-hover:scale-110 transition-transform duration-300">
+                    <Icon size={28} className="text-ph-gold-400" />
+                  </div>
+                  <h3 className="font-bold text-sm mb-1">{title}</h3>
+                  <p className="text-xs text-ph-blue-200/80 leading-relaxed">{desc}</p>
                 </div>
               ))}
             </div>
@@ -106,17 +109,19 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
             {[
-              { value: "300+", label: "Active Borrowers", icon: "👥" },
-              { value: "98%", label: "Approval Rate", icon: "✅" },
-              { value: "24hrs", label: "Avg. Processing", icon: "⚡" },
-              { value: "4%", label: "Monthly Interest", icon: "📊" },
-            ].map((s) => (
-              <div key={s.label} className="text-center group">
-                <div className="text-2xl mb-2 group-hover:scale-110 transition-transform duration-300">{s.icon}</div>
-                <div className="text-2xl md:text-4xl font-extrabold text-ph-blue-600 tracking-tight">
-                  {s.value}
+              { value: "300+",  label: "Active Borrowers",   Icon: Users,       color: "text-ph-blue-500" },
+              { value: "98%",   label: "Approval Rate",      Icon: CheckCircle, color: "text-emerald-500" },
+              { value: "24hrs", label: "Avg. Processing",    Icon: Zap,         color: "text-ph-gold-500" },
+              { value: "4%",    label: "Monthly Interest",   Icon: BarChart3,   color: "text-ph-red-500" },
+            ].map(({ value, label, Icon, color }) => (
+              <div key={label} className="text-center group">
+                <div className="flex justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+                  <Icon size={32} className={color} />
                 </div>
-                <div className="text-sm text-gray-500 mt-1 font-medium">{s.label}</div>
+                <div className="text-2xl md:text-4xl font-extrabold text-ph-blue-600 tracking-tight">
+                  {value}
+                </div>
+                <div className="text-sm text-gray-500 mt-1 font-medium">{label}</div>
               </div>
             ))}
           </div>
@@ -147,6 +152,62 @@ export default function Home() {
                 <h3 className="font-bold text-gray-900 text-lg mb-2">{s.title}</h3>
                 <p className="text-sm text-gray-500 leading-relaxed">{s.desc}</p>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="bg-white py-20 border-b border-gray-100">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <span className="text-ph-blue-500 font-semibold text-sm uppercase tracking-wider">Got Questions?</span>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mt-2">
+              Frequently Asked <span className="text-ph-red-500">Questions</span>
+            </h2>
+            <p className="text-gray-500 mt-3">Everything you need to know about borrowing with MyCredit Filipinas.</p>
+          </div>
+          <div className="space-y-3">
+            {[
+              {
+                q: "What documents do I need to apply?",
+                a: "You only need a valid government-issued ID, proof of income (payslip or ITR), and a utility bill for address verification. Our application is fully online — no physical documents required upfront.",
+              },
+              {
+                q: "How long does loan approval take?",
+                a: "Most applications are reviewed within 24 hours on business days. Once approved, funds are released immediately to your registered bank account.",
+              },
+              {
+                q: "What are the interest rates?",
+                a: "Our standard interest rate starts at 4% per month on the outstanding balance. Final rates may vary depending on your credit profile and loan type.",
+              },
+              {
+                q: "How do I make a payment?",
+                a: "Log in to your dashboard, go to Payments, and click \"Make a Payment\". You can pay via GCash, Maya, or bank transfer. Upload your receipt and our staff will verify it within 24 hours.",
+              },
+              {
+                q: "Can I apply for more than one loan?",
+                a: "You may have only one Active loan at a time. Once your current loan is fully paid, you are eligible to apply for a new one. You can still have a Pending application while a loan is under review.",
+              },
+              {
+                q: "What happens if I miss a payment?",
+                a: "Missing a payment may result in penalties and affect your credit standing. Please contact us as soon as possible if you are having difficulty — we are happy to discuss restructuring options.",
+              },
+            ].map(({ q, a }) => (
+              <details
+                key={q}
+                className="group bg-gray-50 rounded-2xl border border-gray-100 hover:border-ph-blue-100 transition-colors overflow-hidden"
+              >
+                <summary className="flex items-center justify-between cursor-pointer px-6 py-4 font-semibold text-gray-900 text-sm list-none select-none">
+                  {q}
+                  <span className="ml-4 flex-shrink-0 w-6 h-6 rounded-full bg-white border border-gray-200 group-open:border-ph-blue-200 group-open:bg-ph-blue-50 flex items-center justify-center transition-colors">
+                    <svg className="w-3 h-3 text-gray-500 group-open:text-ph-blue-600 group-open:rotate-45 transition-all duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                  </span>
+                </summary>
+                <div className="px-6 pb-5 text-sm text-gray-500 leading-relaxed border-t border-gray-100 pt-4">{a}</div>
+              </details>
             ))}
           </div>
         </div>

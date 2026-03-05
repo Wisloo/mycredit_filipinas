@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { CheckCircle, ChevronLeft, CreditCard, FileText } from "lucide-react";
 
 interface ActiveLoan {
   loan_id: number;
@@ -86,32 +87,55 @@ export default function SubmitPaymentPage() {
 
   if (loading) {
     return (
-      <div className="text-gray-500 py-8 text-center">Loading...</div>
+      <div className="space-y-5 animate-fade-in">
+        <div className="flex items-center gap-3">
+          <div className="h-5 w-5 bg-gray-200 rounded animate-pulse" />
+          <div className="space-y-1.5">
+            <div className="h-7 w-48 bg-gray-200 rounded animate-pulse" />
+            <div className="h-4 w-64 bg-gray-100 rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="space-y-2">
+                <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+                <div className="h-11 w-full bg-gray-100 rounded-xl animate-pulse" />
+              </div>
+            ))}
+          </div>
+          <div className="bg-gray-100 rounded-2xl h-64 animate-pulse" />
+        </div>
+      </div>
     );
   }
 
   if (success) {
     return (
-      <div className="max-w-lg mx-auto text-center py-12">
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-8">
-          <div className="text-5xl mb-4">✅</div>
-          <h2 className="text-xl font-bold text-green-800 mb-2">
+      <div className="max-w-lg mx-auto text-center py-12 animate-fade-in">
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-10">
+          <div className="flex justify-center mb-5">
+            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center shadow-sm">
+              <CheckCircle size={42} className="text-emerald-500" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-extrabold text-emerald-900 mb-2">
             Payment Submitted!
           </h2>
-          <p className="text-green-700 text-sm mb-6">
+          <p className="text-emerald-700 text-sm mb-7 leading-relaxed">
             Your payment has been recorded and is pending verification by our
-            staff.
+            staff. You&apos;ll be notified once it&apos;s confirmed.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               href="/dashboard/payments"
-              className="px-6 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors text-sm"
+              className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm shadow-sm"
             >
-              View My Payments
+              <CreditCard size={15} /> View My Payments
             </Link>
             <Link
               href="/dashboard"
-              className="px-6 py-2.5 bg-white border border-green-300 text-green-700 rounded-lg font-medium hover:bg-green-50 transition-colors text-sm"
+              className="inline-flex items-center justify-center px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm"
             >
               Back to Dashboard
             </Link>
@@ -126,21 +150,9 @@ export default function SubmitPaymentPage() {
       <div className="flex items-center gap-3 mb-6">
         <Link
           href="/dashboard/payments"
-          className="text-gray-400 hover:text-gray-600 transition-colors"
+          className="text-gray-400 hover:text-indigo-500 transition-colors"
         >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15.75 19.5L8.25 12l7.5-7.5"
-            />
-          </svg>
+          <ChevronLeft size={20} />
         </Link>
         <div>
           <h1 className="text-2xl font-extrabold text-gray-900">Make a Payment</h1>
@@ -151,15 +163,17 @@ export default function SubmitPaymentPage() {
       </div>
 
       {loans.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <p className="text-4xl mb-3">📋</p>
-          <p className="text-gray-600 font-medium">No Active Loans</p>
-          <p className="text-gray-400 text-sm mt-1 mb-4">
+        <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+          <div className="mx-auto mb-4 w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center">
+            <FileText size={28} className="text-gray-300" />
+          </div>
+          <p className="text-gray-700 font-semibold">No Active Loans</p>
+          <p className="text-gray-400 text-sm mt-1 mb-5">
             You don&apos;t have any active loans to make payments on.
           </p>
           <Link
             href="/dashboard/loans/apply"
-            className="inline-block px-6 py-2.5 bg-ph-blue-500 text-white rounded-lg font-medium hover:bg-ph-blue-600 transition-colors text-sm"
+            className="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm"
           >
             Apply for a Loan
           </Link>
@@ -182,9 +196,18 @@ export default function SubmitPaymentPage() {
                   <select
                     required
                     value={form.loan_id}
-                    onChange={(e) =>
-                      setForm({ ...form, loan_id: e.target.value })
-                    }
+                    onChange={(e) => {
+                      const loanId = e.target.value;
+                      const chosen = loans.find((l) => l.loan_id === Number(loanId));
+                      // Auto-fill the amortization amount when a loan is selected
+                      setForm((prev) => ({
+                        ...prev,
+                        loan_id: loanId,
+                        amount_paid: chosen?.amortization
+                          ? String(Number(chosen.amortization).toFixed(2))
+                          : prev.amount_paid,
+                      }));
+                    }}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ph-blue-500 focus:border-transparent outline-none text-gray-900 bg-white"
                   >
                     <option value="">Choose a loan</option>
@@ -213,6 +236,20 @@ export default function SubmitPaymentPage() {
                     placeholder="e.g. 2000"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ph-blue-500 focus:border-transparent outline-none text-gray-900"
                   />
+                  {selectedLoan?.amortization != null && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-xs text-gray-400">
+                        Suggested: ₱{Number(selectedLoan.amortization).toLocaleString()}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, amount_paid: String(Number(selectedLoan!.amortization).toFixed(2)) })}
+                        className="text-xs text-ph-blue-500 hover:text-ph-blue-700 font-medium underline"
+                      >
+                        Use this
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -334,7 +371,9 @@ export default function SubmitPaymentPage() {
                       </div>
                     ) : (
                       <label htmlFor="receipt-upload" className="cursor-pointer">
-                        <div className="text-3xl mb-2">📸</div>
+                        <div className="flex justify-center mb-2">
+                          <CreditCard size={28} className="text-gray-300" />
+                        </div>
                         <p className="text-sm text-gray-600 font-medium">
                           Click to upload or paste screenshot
                         </p>

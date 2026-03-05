@@ -27,6 +27,13 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    if (current_password === new_password) {
+      return NextResponse.json(
+        { error: "New password must be different from your current password" },
+        { status: 400 }
+      );
+    }
+
     // Fetch current password hash based on role
     let rows: RowDataPacket[];
     if (session.role === "user") {

@@ -54,14 +54,14 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-cream-100">
-      <Navbar user={user} />
+      <div className="print:hidden"><Navbar user={user} /></div>
       <div className="flex">
-        <Sidebar links={sidebarLinks} />
+        <div className="print:hidden"><Sidebar links={sidebarLinks} /></div>
         <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8">
           {children}
         </main>
       </div>
-      {user && <MobileNav links={sidebarLinks} user={user} />}
+      {user && <div className="print:hidden"><MobileNav links={sidebarLinks} user={user} /></div>}
     </div>
   );
 }

@@ -108,11 +108,11 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { action } = body; // "approve" | "deny" | "update"
+    const { action } = body; // "approve" | "deny" | "update" | "default" | "unfreeze"
 
-    if (!["approve", "deny", "update"].includes(action)) {
+    if (!["approve", "deny", "update", "default", "unfreeze"].includes(action)) {
       return NextResponse.json(
-        { error: "Action must be 'approve', 'deny', or 'update'" },
+        { error: "Action must be 'approve', 'deny', 'update', 'default', or 'unfreeze'" },
         { status: 400 }
       );
     }
@@ -164,6 +164,44 @@ export async function PATCH(
       );
 
       return NextResponse.json({ message: "Loan updated successfully", loan_id: loanId });
+    }
+
+    // Mark active loan as Defaulted
+    if (action === "default") {
+      if (!["Active", "Frozen"].includes(loan.loan_status)) {
+        return NextResponse.json(
+          { error: `Cannot mark a ${loan.loan_status} loan as defaulted` },
+          { status: 400 }
+        );
+      }
+      await pool.query(
+        `UPDATE loans SET loan_status = 'Defaulted', updated_at = NOW() WHERE loan_id = ?`,
+        [loanId]
+      );
+      return NextResponse.json({
+        message: "Loan marked as defaulted",
+        loan_id: loanId,
+        new_status: "Defaulted",
+      });
+    }
+
+    // Unfreeze a frozen loan back to Active
+    if (action === "unfreeze") {
+      if (loan.loan_status !== "Frozen") {
+        return NextResponse.json(
+          { error: "Only Frozen loans can be unfrozen" },
+          { status: 400 }
+        );
+      }
+      await pool.query(
+        `UPDATE loans SET loan_status = 'Active', updated_at = NOW() WHERE loan_id = ?`,
+        [loanId]
+      );
+      return NextResponse.json({
+        message: "Loan unfrozen and set back to Active",
+        loan_id: loanId,
+        new_status: "Active",
+      });
     }
 
     // Approve/deny requires Pending status

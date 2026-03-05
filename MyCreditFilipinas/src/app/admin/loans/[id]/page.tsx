@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { CreditCard, AlertCircle, ExternalLink, Calendar, ReceiptText, User, ChevronLeft } from "lucide-react";
+import { useToast } from "@/components/Toast";
 
 interface LoanDetail {
   loan_id: number;
@@ -89,7 +91,7 @@ function Section({
   action,
 }: {
   title: string;
-  icon: string;
+  icon: React.ReactNode;
   children: React.ReactNode;
   empty?: boolean;
   action?: React.ReactNode;
@@ -98,7 +100,7 @@ function Section({
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-          <span>{icon}</span> {title}
+          <span className="text-gray-400">{icon}</span> {title}
         </h3>
         {action}
       </div>
@@ -128,6 +130,8 @@ export default function AdminLoanDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({ fees: "", profit: "" });
 
+  const { toast } = useToast();
+
   const fetchLoan = useCallback(() => {
     setLoading(true);
     fetch(`/api/loans/${params.id}`)
@@ -151,7 +155,7 @@ export default function AdminLoanDetailPage() {
     fetchLoan();
   }, [fetchLoan]);
 
-  const handleAction = async (action: "approve" | "deny", reason?: string) => {
+  const handleAction = async (action: "approve" | "deny" | "default" | "unfreeze", reason?: string) => {
     setActionLoading(action);
     setActionMessage("");
     try {
@@ -164,6 +168,13 @@ export default function AdminLoanDetailPage() {
       if (!res.ok) {
         setActionMessage(data.error || "Failed");
       } else {
+        toast(
+          action === "approve" ? `Loan #${params.id} approved.` :
+          action === "deny"    ? `Loan #${params.id} denied.` :
+          action === "default" ? `Loan #${params.id} marked as defaulted.` :
+          `Loan #${params.id} unfrozen.`,
+          action === "approve" || action === "unfreeze" ? "success" : "warning"
+        );
         setActionMessage(data.message);
         setShowDenyModal(false);
         fetchLoan();
@@ -187,6 +198,12 @@ export default function AdminLoanDetailPage() {
       if (!res.ok) {
         setActionMessage(data.error || "Failed");
       } else {
+        toast(
+          action === "verify"
+            ? `Payment #${paymentId} verified.`
+            : `Payment #${paymentId} rejected.`,
+          action === "verify" ? "success" : "warning"
+        );
         fetchLoan();
       }
     } catch {
@@ -212,6 +229,7 @@ export default function AdminLoanDetailPage() {
       if (!res.ok) {
         setActionMessage(data.error || "Failed");
       } else {
+        toast("Loan updated successfully.", "success");
         setActionMessage("Loan updated successfully");
         setShowEditModal(false);
         fetchLoan();
@@ -234,7 +252,11 @@ export default function AdminLoanDetailPage() {
   if (error || !loan) {
     return (
       <div className="text-center py-20">
-        <p className="text-5xl mb-4">😕</p>
+        <div className="flex justify-center mb-4">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+            <AlertCircle size={32} className="text-gray-400" />
+          </div>
+        </div>
         <h2 className="text-lg font-semibold text-gray-900 mb-1">
           Loan not found
         </h2>
@@ -324,7 +346,7 @@ export default function AdminLoanDetailPage() {
           onClick={() => router.back()}
           className="text-sm text-ph-blue-500 hover:text-ph-blue-700 font-medium mb-3 flex items-center gap-1"
         >
-          ← Back to Loans
+          <ChevronLeft size={16} /> Back to Loans
         </button>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
@@ -348,9 +370,9 @@ export default function AdminLoanDetailPage() {
               </p>
               <Link
                 href={`/admin/users/${loan.user_id}`}
-                className="text-sm text-ph-blue-500 hover:text-ph-blue-700 font-medium mt-1 inline-block"
+                className="inline-flex items-center gap-1 text-sm text-ph-blue-500 hover:text-ph-blue-700 font-medium mt-1"
               >
-                👤 {loan.borrower_name} ({loan.email_address})
+                <User size={13} /> {loan.borrower_name} ({loan.email_address})
               </Link>
             </div>
             <div className="flex flex-col items-end gap-3">
@@ -383,7 +405,37 @@ export default function AdminLoanDetailPage() {
 
               {["Active", "Approved", "Pending"].includes(loan.loan_status) && (
                 <button onClick={() => setShowEditModal(true)} className="px-4 py-2 text-xs font-medium text-ph-blue-600 bg-ph-blue-50 rounded-lg hover:bg-ph-blue-100 transition-colors">
-                  ✎ Edit Fees & Profit
+                  ✎ Edit Fees &amp; Profit
+                </button>
+              )}
+
+              {/* Mark as Defaulted for Active/Frozen loans */}
+              {["Active", "Frozen"].includes(loan.loan_status) && (
+                <button
+                  onClick={() => {
+                    if (confirm(`Mark Loan #${loan.loan_id} as Defaulted? This indicates the borrower has failed to repay.`)) {
+                      handleAction("default");
+                    }
+                  }}
+                  disabled={!!actionLoading}
+                  className="px-4 py-2 text-xs font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors"
+                >
+                  {actionLoading === "default" ? "Marking..." : "⚠ Mark as Defaulted"}
+                </button>
+              )}
+
+              {/* Unfreeze for Frozen loans */}
+              {loan.loan_status === "Frozen" && (
+                <button
+                  onClick={() => {
+                    if (confirm(`Unfreeze Loan #${loan.loan_id} and set it back to Active?`)) {
+                      handleAction("unfreeze");
+                    }
+                  }}
+                  disabled={!!actionLoading}
+                  className="px-4 py-2 text-xs font-medium text-white bg-cyan-500 rounded-lg hover:bg-cyan-600 disabled:opacity-50 transition-colors"
+                >
+                  {actionLoading === "unfreeze" ? "Unfreezing..." : "❄ Unfreeze Loan"}
                 </button>
               )}
             </div>
@@ -416,7 +468,7 @@ export default function AdminLoanDetailPage() {
 
       {/* Loan Details Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <Section title="Loan Terms" icon="📝">
+        <Section title="Loan Terms" icon={<ReceiptText size={14} />}>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5">
@@ -491,7 +543,7 @@ export default function AdminLoanDetailPage() {
           </div>
         </Section>
 
-        <Section title="Processing Details" icon="⚙️">
+        <Section title="Processing Details" icon={<Calendar size={14} />}>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5">
@@ -568,7 +620,7 @@ export default function AdminLoanDetailPage() {
       <div className="mb-4">
         <Section
           title={`Payment History (${loan.payments.length})`}
-          icon="💳"
+          icon={<CreditCard size={14} />}
           empty={loan.payments.length === 0}
         >
           {/* Mobile: cards */}
@@ -599,7 +651,7 @@ export default function AdminLoanDetailPage() {
                   {p.attachment_url && (
                     <div>
                       <a href={p.attachment_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-ph-blue-600 bg-ph-blue-50 rounded-lg hover:bg-ph-blue-100 transition-colors">
-                        📸 View Receipt
+                        <ExternalLink size={11} /> View Receipt
                       </a>
                     </div>
                   )}
@@ -674,7 +726,7 @@ export default function AdminLoanDetailPage() {
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-ph-blue-600 bg-ph-blue-50 rounded-lg hover:bg-ph-blue-100 transition-colors"
                         >
-                          📸 View
+                          <ExternalLink size={11} /> View
                         </a>
                       ) : (
                         <span className="text-xs text-gray-400">—</span>
@@ -712,7 +764,7 @@ export default function AdminLoanDetailPage() {
       <div className="mb-4">
         <Section
           title={`Payment Schedule (${loan.schedules.length})`}
-          icon="📅"
+          icon={<Calendar size={14} />}
           empty={loan.schedules.length === 0}
         >
           {/* Mobile: cards */}
@@ -782,7 +834,7 @@ export default function AdminLoanDetailPage() {
       <div className="mb-4">
         <Section
           title="Loan Releases"
-          icon="💵"
+          icon={<ReceiptText size={14} />}
           empty={loan.releases.length === 0}
         >
           <div className="space-y-3">

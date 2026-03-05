@@ -1,7 +1,24 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  Users,
+  FileText,
+  CreditCard,
+  ShieldCheck,
+  TrendingUp,
+  AlertTriangle,
+  Clock,
+  CheckCircle,
+  XCircle,
+  ChevronRight,
+  Snowflake,
+  AlertCircle,
+  Banknote,
+  BarChart3,
+  UserPlus,
+} from "lucide-react";
 
 interface Loan {
   loan_id: number;
@@ -46,6 +63,7 @@ interface OverviewStats {
   frozenLoans: number;
   paidLoans: number;
   deniedLoans: number;
+  defaultedLoans: number;
   totalPayments: number;
   pendingPayments: number;
   verifiedPayments: number;
@@ -58,21 +76,13 @@ interface OverviewStats {
   recentLoans: Loan[];
   recentPayments: Payment[];
   recentUsers: User[];
+  monthlyCollections: { month: string; amount: number }[];
 }
-
-const statusColors: Record<string, string> = {
-  Pending: "bg-yellow-100 text-yellow-800",
-  Approved: "bg-blue-100 text-blue-800",
-  Active: "bg-green-100 text-green-800",
-  Paid: "bg-gray-100 text-gray-800",
-  Defaulted: "bg-red-100 text-red-800",
-  Denied: "bg-red-100 text-red-800",
-  Frozen: "bg-cyan-100 text-cyan-800",
-};
 
 export default function AdminOverview() {
   const [stats, setStats] = useState<OverviewStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -106,6 +116,8 @@ export default function AdminOverview() {
             .length,
           paidLoans: loanList.filter((l) => l.loan_status === "Paid").length,
           deniedLoans: loanList.filter((l) => l.loan_status === "Denied")
+            .length,
+          defaultedLoans: loanList.filter((l) => l.loan_status === "Defaulted")
             .length,
           totalPayments: paymentList.length,
           pendingPayments: paymentList.filter(
@@ -143,11 +155,36 @@ export default function AdminOverview() {
               )
             )
             .reduce((s, l) => s + (Number(l.fees) || 0), 0),
-          recentLoans: loanList.slice(0, 5),
-          recentPayments: paymentList.slice(0, 5),
-          recentUsers: userList.slice(0, 5),
+          recentLoans: [...loanList]
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .slice(0, 5),
+          recentPayments: [...paymentList]
+            .sort((a, b) => {
+              const da = a.payment_date ? new Date(a.payment_date).getTime() : new Date(a.created_at).getTime();
+              const db = b.payment_date ? new Date(b.payment_date).getTime() : new Date(b.created_at).getTime();
+              return db - da;
+            })
+            .slice(0, 5),
+          recentUsers: [...userList]
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .slice(0, 5),
+          monthlyCollections: (() => {
+            const now = new Date();
+            return Array.from({ length: 6 }, (_, i) => {
+              const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+              const label = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+              const amount = verifiedPayments
+                .filter((p) => {
+                  const pd = new Date(p.payment_date || p.created_at);
+                  return pd.getFullYear() === d.getFullYear() && pd.getMonth() === d.getMonth();
+                })
+                .reduce((s, p) => s + (Number(p.amount_paid) || 0), 0);
+              return { month: label, amount };
+            });
+          })(),
         });
       })
+      .catch(() => setFetchError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -159,91 +196,38 @@ export default function AdminOverview() {
     );
   }
 
-  if (!stats) return null;
+  if (fetchError || !stats) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+        <AlertCircle size={36} className="text-rose-400" />
+        <p className="text-gray-700 font-semibold text-lg">Failed to load admin overview</p>
+        <p className="text-gray-500 text-sm">Could not retrieve system data. Please refresh the page and try again.</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-2 px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
-  const summaryCards = [
-    {
-      label: "Total Disbursed",
-      value: `₱${stats.totalDisbursed.toLocaleString()}`,
-      icon: "💰",
-      color: "from-ph-blue-500 to-ph-blue-700",
-      sub: `${stats.activeLoans} active loans`,
-    },
-    {
-      label: "Total Collected",
-      value: `₱${stats.totalCollected.toLocaleString()}`,
-      icon: "📥",
-      color: "from-green-500 to-green-700",
-      sub: `${stats.verifiedPayments} verified payments`,
-    },
-    {
-      label: "Outstanding Balance",
-      value: `₱${stats.totalOutstanding.toLocaleString()}`,
-      icon: "📊",
-      color: "from-ph-gold-500 to-ph-gold-700",
-      sub: `across active & frozen loans`,
-    },
-    {
-      label: "Revenue (Fees + Profit)",
-      value: `₱${(stats.totalFees + stats.totalProfit).toLocaleString()}`,
-      icon: "📈",
-      color: "from-purple-500 to-purple-700",
-      sub: `₱${stats.totalFees.toLocaleString()} fees · ₱${stats.totalProfit.toLocaleString()} profit`,
-    },
-  ];
-
-  const statCards = [
-    {
-      label: "Total Users",
-      value: stats.totalUsers,
-      icon: "👥",
-      gradient: "from-ph-blue-500 to-ph-blue-700",
-      detail: `${stats.activeUsers} active · ${stats.inactiveUsers} inactive`,
-    },
-    {
-      label: "Total Loans",
-      value: stats.totalLoans,
-      icon: "📋",
-      gradient: "from-ph-blue-400 to-ph-blue-600",
-      detail: `${stats.pendingLoans} pending · ${stats.activeLoans} active`,
-    },
-    {
-      label: "Frozen Loans",
-      value: stats.frozenLoans,
-      icon: "🧊",
-      gradient: "from-cyan-400 to-cyan-600",
-      detail: "Deactivated user loans",
-    },
-    {
-      label: "Payments",
-      value: stats.totalPayments,
-      icon: "💳",
-      gradient: "from-ph-gold-400 to-ph-gold-600",
-      detail: `${stats.pendingPayments} pending verification`,
-    },
-    {
-      label: "Staff Members",
-      value: stats.totalStaff,
-      icon: "🛡️",
-      gradient: "from-purple-400 to-purple-600",
-      detail: "Admins & approvers",
-    },
-    {
-      label: "Pending Actions",
-      value: stats.pendingLoans + stats.pendingPayments,
-      icon: "⚡",
-      gradient: "from-ph-red-400 to-ph-red-600",
-      detail: `${stats.pendingLoans} loans · ${stats.pendingPayments} payments`,
-    },
-  ];
+  const statusStyle: Record<string, string> = {
+    Active: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+    Approved: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200",
+    Pending: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+    Frozen: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
+    Defaulted: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
+    Paid: "bg-gray-100 text-gray-600",
+    Denied: "bg-rose-50 text-rose-700",
+  };
 
   return (
-    <div className="animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+    <div className="space-y-5 animate-fade-in">
+      {/* ── Header ─────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold text-gray-900">
-            Admin Overview
-          </h1>
+          <h1 className="text-xl font-bold text-gray-900">Admin Overview</h1>
           <p className="text-gray-500 text-sm">
             System-wide statistics at a glance
           </p>
@@ -251,274 +235,555 @@ export default function AdminOverview() {
         <div className="flex gap-2">
           <Link
             href="/admin/loans"
-            className="px-4 py-2 bg-ph-blue-500 text-white text-sm font-medium rounded-xl hover:bg-ph-blue-600 transition-colors"
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors"
           >
             Manage Loans
           </Link>
           <Link
             href="/admin/payments"
-            className="px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-50 transition-colors"
           >
             Manage Payments
           </Link>
         </div>
       </div>
 
-      {/* Financial Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {summaryCards.map((c) => (
+      {/* ── KPI Cards ──────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Disbursed */}
+        <div className="bg-white rounded-2xl border border-gray-200 border-l-4 border-l-indigo-500 p-5 flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
+            <Banknote size={18} className="text-indigo-400" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Disbursed</p>
+            <p className="text-xl font-bold text-gray-900 mt-0.5">
+              &#8369;{stats.totalDisbursed.toLocaleString()}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {stats.activeLoans} active loan{stats.activeLoans !== 1 ? "s" : ""}
+            </p>
+          </div>
+        </div>
+        {/* Total Collected */}
+        <div className="bg-white rounded-2xl border border-gray-200 border-l-4 border-l-emerald-500 p-5 flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
+            <CheckCircle size={18} className="text-emerald-400" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Collected</p>
+            <p className="text-xl font-bold text-gray-900 mt-0.5">
+              &#8369;{stats.totalCollected.toLocaleString()}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {stats.verifiedPayments} verified
+            </p>
+          </div>
+        </div>
+        {/* Outstanding */}
+        <div className="bg-white rounded-2xl border border-gray-200 border-l-4 border-l-amber-500 p-5 flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
+            <TrendingUp size={18} className="text-amber-400" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Outstanding</p>
+            <p className="text-xl font-bold text-gray-900 mt-0.5">
+              &#8369;{stats.totalOutstanding.toLocaleString()}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">active &amp; frozen loans</p>
+          </div>
+        </div>
+        {/* Revenue */}
+        <div className="bg-white rounded-2xl border border-gray-200 border-l-4 border-l-purple-500 p-5 flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
+            <BarChart3 size={18} className="text-purple-400" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Revenue</p>
+            <p className="text-xl font-bold text-gray-900 mt-0.5">
+              &#8369;{(stats.totalFees + stats.totalProfit).toLocaleString()}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              &#8369;{stats.totalFees.toLocaleString()} fees &middot; &#8369;{stats.totalProfit.toLocaleString()} profit
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Stat Chips ─────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {[
+          {
+            label: "Total Users",
+            value: stats.totalUsers,
+            icon: <Users size={15} className="text-indigo-500" />,
+            color: "text-indigo-600",
+          },
+          {
+            label: "Total Loans",
+            value: stats.totalLoans,
+            icon: <FileText size={15} className="text-blue-500" />,
+            color: "text-blue-600",
+          },
+          {
+            label: "Frozen Loans",
+            value: stats.frozenLoans,
+            icon: <Snowflake size={15} className="text-sky-500" />,
+            color: "text-sky-600",
+          },
+          {
+            label: "Payments",
+            value: stats.totalPayments,
+            icon: <CreditCard size={15} className="text-emerald-500" />,
+            color: "text-emerald-600",
+          },
+          {
+            label: "Staff",
+            value: stats.totalStaff,
+            icon: <ShieldCheck size={15} className="text-purple-500" />,
+            color: "text-purple-600",
+          },
+          {
+            label: "Pending Actions",
+            value: stats.pendingLoans + stats.pendingPayments,
+            icon: <AlertCircle size={15} className="text-rose-500" />,
+            color: "text-rose-600",
+          },
+        ].map((s) => (
           <div
-            key={c.label}
-            className={`bg-gradient-to-br ${c.color} rounded-2xl p-5 text-white shadow-lg relative overflow-hidden`}
+            key={s.label}
+            className="bg-white border border-gray-200 rounded-xl p-3 flex items-center gap-2"
           >
-            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-6 translate-x-6" />
-            <div className="relative z-10">
-              <span className="text-2xl">{c.icon}</span>
-              <p className="text-white/80 text-xs font-medium mt-2 uppercase tracking-wide">
-                {c.label}
-              </p>
-              <p className="text-2xl font-extrabold mt-1">{c.value}</p>
-              <p className="text-white/70 text-xs mt-1">{c.sub}</p>
+            <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
+              {s.icon}
+            </div>
+            <div>
+              <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
+              <p className="text-[10px] text-gray-500 leading-tight">{s.label}</p>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-        {statCards.map((c) => (
-          <div
-            key={c.label}
-            className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg">{c.icon}</span>
-              <span
-                className={`w-2 h-2 rounded-full bg-gradient-to-br ${c.gradient}`}
-              />
-            </div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-              {c.label}
-            </p>
-            <p className="text-xl font-extrabold text-gray-900 mt-0.5">
-              {c.value}
-            </p>
-            <p className="text-[10px] text-gray-400 mt-1 leading-tight">
-              {c.detail}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {/* Three column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        {/* Recent Loans */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
-              📋 Recent Loans
-            </h3>
+      {/* ── Attention strip ────────────────────────────── */}
+      {(stats.pendingLoans > 0 ||
+        stats.pendingPayments > 0 ||
+        stats.frozenLoans > 0) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 flex flex-wrap gap-3 items-center">
+          <AlertTriangle size={16} className="text-amber-600" />
+          <span className="text-amber-800 text-sm font-semibold">
+            Needs Attention
+          </span>
+          {stats.pendingLoans > 0 && (
             <Link
               href="/admin/loans"
-              className="text-xs text-ph-blue-500 hover:text-ph-blue-700 font-medium"
+              className="flex items-center gap-2 px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-sm text-amber-800 hover:bg-amber-100 transition-colors font-medium"
             >
-              View all →
+              <span className="w-5 h-5 bg-amber-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold">
+                {stats.pendingLoans}
+              </span>
+              Pending Loans
+            </Link>
+          )}
+          {stats.pendingPayments > 0 && (
+            <Link
+              href="/admin/payments"
+              className="flex items-center gap-2 px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-sm text-amber-800 hover:bg-amber-100 transition-colors font-medium"
+            >
+              <span className="w-5 h-5 bg-amber-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold">
+                {stats.pendingPayments}
+              </span>
+              Pending Payments
+            </Link>
+          )}
+          {stats.frozenLoans > 0 && (
+            <Link
+              href="/admin/loans"
+              className="flex items-center gap-2 px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-sm text-amber-800 hover:bg-amber-100 transition-colors font-medium"
+            >
+              <span className="w-5 h-5 bg-sky-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold">
+                {stats.frozenLoans}
+              </span>
+              Frozen Loans
+            </Link>
+          )}
+        </div>
+      )}
+
+      {/* ── Charts Row ─────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Monthly Collections Bar Chart */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-semibold text-gray-900">Monthly Collections</p>
+            <span className="text-xs text-gray-400">Last 6 months &bull; verified only</span>
+          </div>
+          {stats.monthlyCollections.every((m) => m.amount === 0) ? (
+            <div className="flex items-center justify-center h-28 text-gray-400 text-xs">
+              No collections recorded yet
+            </div>
+          ) : (
+            <>
+              <div className="flex items-end gap-2" style={{ height: 96 }}>
+                {(() => {
+                  const max = Math.max(...stats.monthlyCollections.map((m) => m.amount), 1);
+                  return stats.monthlyCollections.map((m) => {
+                    const h = Math.max((m.amount / max) * 88, 3);
+                    return (
+                      <div
+                        key={m.month}
+                        className="flex-1 flex flex-col items-center justify-end gap-1 group relative"
+                      >
+                        <span className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 bg-gray-800 text-white text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap pointer-events-none z-10 transition-opacity">
+                          &#8369;{m.amount.toLocaleString()}
+                        </span>
+                        <div
+                          className="w-full bg-indigo-400 hover:bg-indigo-500 rounded-t-md transition-all duration-200 cursor-default"
+                          style={{ height: h }}
+                        />
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+              <div className="flex gap-2 mt-1.5">
+                {stats.monthlyCollections.map((m) => (
+                  <div key={m.month} className="flex-1 text-center">
+                    <p className="text-[9px] text-gray-400 leading-none">{m.month}</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Loan Status Distribution */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-semibold text-gray-900">Loan Status Distribution</p>
+            <span className="text-xs text-gray-400">{stats.totalLoans} total</span>
+          </div>
+          {stats.totalLoans === 0 ? (
+            <div className="flex items-center justify-center h-28 text-gray-400 text-xs">
+              No loans recorded yet
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {([
+                { label: "Active / Approved", count: stats.activeLoans, color: "bg-emerald-400" },
+                { label: "Pending Review",    count: stats.pendingLoans, color: "bg-amber-400" },
+                { label: "Paid Off",          count: stats.paidLoans,    color: "bg-indigo-400" },
+                { label: "Denied",            count: stats.deniedLoans,  color: "bg-rose-400" },
+                { label: "Defaulted",         count: stats.defaultedLoans, color: "bg-gray-400" },
+                { label: "Frozen",            count: stats.frozenLoans,  color: "bg-sky-400" },
+              ] as const).map((row) => {
+                const pct = stats.totalLoans > 0
+                  ? Math.round((row.count / stats.totalLoans) * 100)
+                  : 0;
+                return (
+                  <div key={row.label}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-gray-600">{row.label}</span>
+                      <span className="font-semibold text-gray-900">
+                        {row.count}
+                        <span className="text-gray-400 font-normal ml-1">({pct}%)</span>
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${row.color} transition-all duration-500`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Recent Activity ─────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Recent Loans */}
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText size={16} className="text-indigo-500" />
+              <p className="font-semibold text-gray-900 text-sm">Recent Loans</p>
+            </div>
+            <Link
+              href="/admin/loans"
+              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+            >
+              View all <ChevronRight size={12} />
             </Link>
           </div>
           <div className="divide-y divide-gray-50">
-            {stats.recentLoans.map((l) => (
-              <Link
-                key={l.loan_id}
-                href={`/admin/loans/${l.loan_id}`}
-                className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {l.borrower_name}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    ₱{Number(l.principal_amt).toLocaleString()} · {l.loan_type}
-                  </p>
-                </div>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${
-                    statusColors[l.loan_status] || "bg-gray-100 text-gray-800"
-                  }`}
-                >
-                  {l.loan_status}
-                </span>
-              </Link>
-            ))}
-            {stats.recentLoans.length === 0 && (
-              <p className="text-sm text-gray-400 text-center py-6">
+            {stats.recentLoans.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">
                 No loans yet
               </p>
+            ) : (
+              stats.recentLoans.map((l) => (
+                <Link
+                  key={l.loan_id}
+                  href={`/admin/loans/${l.loan_id}`}
+                  className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {l.borrower_name}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      &#8369;{Number(l.principal_amt).toLocaleString()} &middot;{" "}
+                      {l.loan_type}
+                    </p>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ml-3 ${
+                      statusStyle[l.loan_status] || "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {l.loan_status}
+                  </span>
+                </Link>
+              ))
             )}
           </div>
         </div>
 
         {/* Recent Payments */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
-              💳 Recent Payments
-            </h3>
+            <div className="flex items-center gap-2">
+              <CreditCard size={16} className="text-emerald-500" />
+              <p className="font-semibold text-gray-900 text-sm">
+                Recent Payments
+              </p>
+            </div>
             <Link
               href="/admin/payments"
-              className="text-xs text-ph-blue-500 hover:text-ph-blue-700 font-medium"
+              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
             >
-              View all →
+              View all <ChevronRight size={12} />
             </Link>
           </div>
           <div className="divide-y divide-gray-50">
-            {stats.recentPayments.map((p) => (
-              <div
-                key={p.payment_id}
-                className="flex items-center justify-between px-5 py-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {p.borrower_name}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    ₱{Number(p.amount_paid).toLocaleString()} · {p.payment_method}
-                  </p>
-                </div>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${
-                    p.payment_status === "Verified"
-                      ? "bg-green-100 text-green-800"
-                      : p.payment_status === "Pending"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : "bg-red-100 text-red-800"
-                  }`}
-                >
-                  {p.payment_status}
-                </span>
-              </div>
-            ))}
-            {stats.recentPayments.length === 0 && (
-              <p className="text-sm text-gray-400 text-center py-6">
+            {stats.recentPayments.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">
                 No payments yet
               </p>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Users */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
-              👥 Recent Users
-            </h3>
-            <Link
-              href="/admin/users"
-              className="text-xs text-ph-blue-500 hover:text-ph-blue-700 font-medium"
-            >
-              View all →
-            </Link>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {stats.recentUsers.map((u) => (
-              <Link
-                key={u.user_id}
-                href={`/admin/users/${u.user_id}`}
-                className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="w-8 h-8 bg-ph-blue-100 text-ph-blue-700 rounded-full flex items-center justify-center font-semibold text-xs flex-shrink-0">
-                    {u.first_name.charAt(0)}
-                    {u.last_name.charAt(0)}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {u.first_name} {u.last_name}
-                    </p>
-                    <p className="text-xs text-gray-500 truncate">
-                      {u.email_address}
-                    </p>
-                  </div>
-                </div>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                    u.is_inactive
-                      ? "bg-red-100 text-red-700"
-                      : "bg-green-100 text-green-700"
-                  }`}
+            ) : (
+              stats.recentPayments.map((p) => (
+                <div
+                  key={p.payment_id}
+                  className="flex items-center justify-between px-5 py-3.5"
                 >
-                  {u.is_inactive ? "Inactive" : "Active"}
-                </span>
-              </Link>
-            ))}
-            {stats.recentUsers.length === 0 && (
-              <p className="text-sm text-gray-400 text-center py-6">
-                No users yet
-              </p>
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        p.payment_status === "Verified"
+                          ? "bg-emerald-100"
+                          : p.payment_status === "Pending"
+                          ? "bg-amber-100"
+                          : "bg-rose-100"
+                      }`}
+                    >
+                      {p.payment_status === "Verified" ? (
+                        <CheckCircle size={15} className="text-emerald-600" />
+                      ) : p.payment_status === "Pending" ? (
+                        <Clock size={15} className="text-amber-600" />
+                      ) : (
+                        <XCircle size={15} className="text-rose-600" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {p.borrower_name}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        &#8369;{Number(p.amount_paid).toLocaleString()} &middot;{" "}
+                        {p.payment_method}
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ml-3 ${
+                      p.payment_status === "Verified"
+                        ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                        : p.payment_status === "Pending"
+                        ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                        : "bg-rose-50 text-rose-700 ring-1 ring-rose-200"
+                    }`}
+                  >
+                    {p.payment_status}
+                  </span>
+                </div>
+              ))
             )}
           </div>
         </div>
       </div>
 
-      {/* Quick Management Links */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h2 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">
-          Quick Management
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
-            {
-              href: "/admin/users",
-              label: "Users",
-              icon: "👥",
-              desc: "Manage borrower accounts",
-              count: stats.totalUsers,
-            },
-            {
-              href: "/admin/loans",
-              label: "Loans",
-              icon: "📋",
-              desc: "Review & approve applications",
-              count: stats.pendingLoans,
-              badge: stats.pendingLoans > 0 ? `${stats.pendingLoans} pending` : undefined,
-            },
-            {
-              href: "/admin/payments",
-              label: "Payments",
-              icon: "💳",
-              desc: "Verify payment records",
-              count: stats.pendingPayments,
-              badge:
-                stats.pendingPayments > 0
-                  ? `${stats.pendingPayments} pending`
-                  : undefined,
-            },
-            {
-              href: "/admin/staff",
-              label: "Staff",
-              icon: "🛡️",
-              desc: "Admin & approver accounts",
-              count: stats.totalStaff,
-            },
-          ].map((item) => (
+      {/* ── Bottom Row ──────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Portfolio Metrics */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-5">
+          <p className="text-sm font-semibold text-gray-900 mb-4">
+            Portfolio Metrics
+          </p>
+          <div className="space-y-3">
+            {[
+              { label: "Active Loans", current: stats.activeLoans, total: stats.totalLoans },
+              { label: "Paid Off", current: stats.paidLoans, total: stats.totalLoans },
+              { label: "Pending", current: stats.pendingLoans, total: stats.totalLoans },
+              { label: "Defaulted / Frozen", current: stats.defaultedLoans + stats.frozenLoans, total: stats.totalLoans },
+            ].map((m) => {
+              const pct = stats.totalLoans > 0 ? Math.round((m.current / stats.totalLoans) * 100) : 0;
+              return (
+                <div key={m.label}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-gray-600">{m.label}</span>
+                    <span className="font-medium text-gray-900">
+                      {m.current}
+                      <span className="text-gray-400 ml-1">({pct}%)</span>
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-1.5">
+                    <div
+                      className="h-1.5 rounded-full bg-indigo-500"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Recent Users (NEW) */}
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <UserPlus size={16} className="text-indigo-500" />
+              <p className="font-semibold text-gray-900 text-sm">Recent Users</p>
+            </div>
             <Link
-              key={item.href}
-              href={item.href}
-              className="flex items-center gap-3 p-4 rounded-xl border border-gray-100 hover:border-ph-blue-300 hover:bg-ph-blue-50 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 relative"
+              href="/admin/users"
+              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
             >
-              <span className="text-2xl">{item.icon}</span>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900 text-sm">
-                  {item.label}
-                </p>
-                <p className="text-xs text-gray-500">{item.desc}</p>
-              </div>
-              {item.badge && (
-                <span className="absolute top-2 right-2 px-2 py-0.5 bg-ph-red-500 text-white text-[10px] font-bold rounded-full">
-                  {item.badge}
-                </span>
-              )}
+              View all <ChevronRight size={12} />
             </Link>
-          ))}
+          </div>
+          <div className="divide-y divide-gray-50">
+            {stats.recentUsers.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-6">
+                No users yet
+              </p>
+            ) : (
+              stats.recentUsers.map((u) => (
+                <Link
+                  key={u.user_id}
+                  href={`/admin/users/${u.user_id}`}
+                  className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="w-8 h-8 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center font-semibold text-xs flex-shrink-0">
+                    {u.first_name.charAt(0)}{u.last_name.charAt(0)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {u.first_name} {u.last_name}
+                    </p>
+                    <p className="text-xs text-gray-400 truncate">
+                      {u.email_address}
+                    </p>
+                  </div>
+                  <span
+                    className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                      u.is_inactive
+                        ? "bg-rose-50 text-rose-700"
+                        : "bg-emerald-50 text-emerald-700"
+                    }`}
+                  >
+                    {u.is_inactive ? "Inactive" : "Active"}
+                  </span>
+                </Link>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Quick Management */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-5">
+          <p className="text-sm font-semibold text-gray-900 mb-4">
+            Quick Management
+          </p>
+          <div className="grid grid-cols-2 gap-2.5">
+            {[
+              {
+                href: "/admin/users",
+                label: "Users",
+                desc: `${stats.totalUsers} total`,
+                icon: <Users size={16} className="text-indigo-500" />,
+                bg: "bg-indigo-50",
+                badge: undefined as string | undefined,
+              },
+              {
+                href: "/admin/loans",
+                label: "Loans",
+                desc: `${stats.totalLoans} total`,
+                icon: <FileText size={16} className="text-amber-500" />,
+                bg: "bg-amber-50",
+                badge:
+                  stats.pendingLoans > 0
+                    ? `${stats.pendingLoans}`
+                    : undefined,
+              },
+              {
+                href: "/admin/payments",
+                label: "Payments",
+                desc: `${stats.totalPayments} total`,
+                icon: <CreditCard size={16} className="text-emerald-500" />,
+                bg: "bg-emerald-50",
+                badge:
+                  stats.pendingPayments > 0
+                    ? `${stats.pendingPayments}`
+                    : undefined,
+              },
+              {
+                href: "/admin/staff",
+                label: "Staff",
+                desc: `${stats.totalStaff} members`,
+                icon: <ShieldCheck size={16} className="text-purple-500" />,
+                bg: "bg-purple-50",
+                badge: undefined as string | undefined,
+              },
+            ].map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="relative flex items-center gap-2.5 p-3 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50 hover:shadow-sm transition-all duration-200"
+              >
+                <div
+                  className={`w-8 h-8 rounded-lg ${item.bg} flex items-center justify-center flex-shrink-0`}
+                >
+                  {item.icon}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-gray-900 text-sm">
+                    {item.label}
+                  </p>
+                  <p className="text-xs text-gray-500">{item.desc}</p>
+                </div>
+                {item.badge && (
+                  <span className="absolute top-1.5 right-1.5 w-5 h-5 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </div>

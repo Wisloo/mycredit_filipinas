@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
 interface MobileNavProps {
-  links: { href: string; label: string; icon: React.ReactNode }[];
+  links: { href: string; label: string; icon: React.ReactNode; badge?: number }[];
   user: { name: string; role: string };
 }
 
@@ -33,11 +33,18 @@ export default function MobileNav({ links, user }: MobileNavProps) {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`flex flex-col items-center px-3 py-1.5 rounded-xl transition-all duration-200 ${
+                className={`relative flex flex-col items-center px-3 py-1.5 rounded-xl transition-all duration-200 ${
                   active ? "text-ph-blue-600" : "text-gray-400"
                 }`}
               >
-                <span className={`w-5 h-5 mb-0.5 transition-transform duration-200 ${active ? "scale-110" : ""}`}>{link.icon}</span>
+                <span className={`relative w-5 h-5 mb-0.5 transition-transform duration-200 ${active ? "scale-110" : ""}`}>
+                  {link.icon}
+                  {link.badge ? (
+                    <span className="absolute -top-1 -right-2 min-w-[0.9rem] h-3.5 px-0.5 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                      {link.badge > 9 ? "9+" : link.badge}
+                    </span>
+                  ) : null}
+                </span>
                 <span className="text-xs font-medium">{link.label}</span>
                 {active && <span className="w-4 h-0.5 bg-ph-blue-500 rounded-full mt-0.5" />}
               </Link>

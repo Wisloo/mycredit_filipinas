@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { ResultSetHeader } from "mysql2";
+import { ResultSetHeader, RowDataPacket } from "mysql2";
 
 const ALLOWED_AMOUNTS = [5000, 10000, 15000, 20000, 25000, 30000];
 
@@ -34,6 +34,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Loan amount must be one of: ₱5,000, ₱10,000, ₱15,000, ₱20,000, ₱25,000, or ₱30,000" },
         { status: 400 }
+      );
+    }
+
+    if (!["monthly", "bi-monthly"].includes(release_frequency || "monthly")) {
+      return NextResponse.json(
+        { error: "Release frequency must be 'monthly' or 'bi-monthly'" },
+        { status: 400 }
+      );
+    }
+
+    // Prevent applying if user already has a Pending or Active loan
+    const [existingLoans] = await pool.query<RowDataPacket[]>(
+      "SELECT loan_id, loan_status FROM loans WHERE user_id = ? AND loan_status IN ('Pending', 'Active', 'Approved') LIMIT 1",
+      [session.id]
+    );
+    if (existingLoans.length > 0) {
+      const existing = existingLoans[0];
+      return NextResponse.json(
+        {
+          error: `You already have a ${existing.loan_status.toLowerCase()} loan (Loan #${existing.loan_id}). Please wait until it is resolved before applying for a new one.`,
+        },
+        { status: 409 }
       );
     }
 
