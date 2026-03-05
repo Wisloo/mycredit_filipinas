@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
         [
           userId,
           bank.bank_name,
-          bank.card_number || null,
+          bank.card_number ? bank.card_number.replace(/\D/g, "").slice(0, 16) : null,
           bank.card_expiry_date ? `${bank.card_expiry_date}-01` : null,
         ]
       );

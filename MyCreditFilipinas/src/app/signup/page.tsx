@@ -230,9 +230,9 @@ export default function SignupPage() {
         <div>
           <label className={labelClass}>Contact Type</label>
           <select value={contact.contact_type} onChange={(e) => updateContact("contact_type", e.target.value)} className={inputClass}>
-            <option value="Mobile">Mobile</option>
-            <option value="Home">Home</option>
+            <option value="Personal">Personal</option>
             <option value="Work">Work</option>
+            <option value="Parent">Parent</option>
           </select>
         </div>
       </div>
@@ -259,10 +259,10 @@ export default function SignupPage() {
           <label className={labelClass}>Residence Type</label>
           <select value={contact.residence_type} onChange={(e) => updateContact("residence_type", e.target.value)} className={inputClass}>
             <option value="">Select...</option>
-            <option value="Owned">Owned</option>
+            <option value="Owned(personal)">Owned (Personal)</option>
+            <option value="Owned but living with parents/relatives">Owned (with Family/Relatives)</option>
             <option value="Rented">Rented</option>
-            <option value="Family-owned">Family-owned</option>
-            <option value="Company-provided">Company-provided</option>
+            <option value="Rented but living with parents/relatives">Rented (with Family/Relatives)</option>
           </select>
         </div>
       </div>
@@ -360,10 +360,9 @@ export default function SignupPage() {
         <div>
           <label className={labelClass}>Relationship</label>
           <select value={reference.reference_type} onChange={(e) => updateReference("reference_type", e.target.value)} className={inputClass}>
-            <option value="personal">Personal</option>
-            <option value="family">Family</option>
-            <option value="work">Work</option>
-            <option value="neighbor">Neighbor</option>
+            <option value="relative">Relative / Family</option>
+            <option value="friend">Friend</option>
+            <option value="work friend">Work Friend</option>
           </select>
         </div>
       </div>
