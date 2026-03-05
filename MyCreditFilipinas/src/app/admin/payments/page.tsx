@@ -201,7 +201,7 @@ export default function AdminPaymentsPage() {
                   Payment #{p.payment_id}
                 </p>
                 <p className="text-sm text-gray-500">
-                  {p.borrower_name || "—"} · Loan #{p.loan_id}
+                  {p.borrower_name || "—"} · Loan #{p.loan_id}
                 </p>
               </div>
               <span
@@ -227,12 +227,12 @@ export default function AdminPaymentsPage() {
               </div>
               <div>
                 <p className="text-gray-500 text-xs">Method</p>
-                <p className="text-gray-700">{p.payment_method || "—"}</p>
+                <p className="text-gray-700">{p.payment_method || "—"}</p>
               </div>
               <div>
                 <p className="text-gray-500 text-xs">Reference</p>
                 <p className="text-gray-700 truncate">
-                  {p.reference_number || "—"}
+                  {p.reference_number || "—"}
                 </p>
               </div>              <div className="col-span-2">
                 <p className="text-gray-500 text-xs">Receipt</p>
@@ -327,7 +327,7 @@ export default function AdminPaymentsPage() {
                     {p.payment_id}
                   </td>
                   <td className="px-4 py-3 text-gray-700">
-                    {p.borrower_name || "—"}
+                    {p.borrower_name || "—"}
                   </td>
                   <td className="px-4 py-3 text-gray-700">#{p.loan_id}</td>
                   <td className="px-4 py-3 text-right font-medium text-gray-900">
@@ -337,10 +337,10 @@ export default function AdminPaymentsPage() {
                     {new Date(p.payment_date).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3 text-gray-700">
-                    {p.payment_method || "—"}
+                    {p.payment_method || "—"}
                   </td>
                   <td className="px-4 py-3 text-gray-700">
-                    {p.reference_number || "—"}
+                    {p.reference_number || "—"}
                   </td>                  <td className="px-4 py-3 text-gray-500 text-xs max-w-[120px] truncate" title={p.remarks || ""}>
                     {p.remarks || "—"}
                   </td>                  <td className="px-4 py-3 text-center">
@@ -365,28 +365,34 @@ export default function AdminPaymentsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {p.payment_status === "Pending" ? (
-                      <div className="flex gap-1 justify-center">
-                        <button
-                          onClick={() =>
-                            setActionModal({ payment: p, action: "verify" })
-                          }
-                          className="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors"
-                        >
-                          Verify
-                        </button>
-                        <button
-                          onClick={() =>
-                            setActionModal({ payment: p, action: "reject" })
-                          }
-                          className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors"
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-gray-400 text-xs">—</span>
-                    )}
+                    <div className="flex gap-1 justify-center">
+                      <button
+                        onClick={() => setViewModal(p)}
+                        className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        View
+                      </button>
+                      {p.payment_status === "Pending" && (
+                        <>
+                          <button
+                            onClick={() =>
+                              setActionModal({ payment: p, action: "verify" })
+                            }
+                            className="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors"
+                          >
+                            Verify
+                          </button>
+                          <button
+                            onClick={() =>
+                              setActionModal({ payment: p, action: "reject" })
+                            }
+                            className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
