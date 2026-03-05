@@ -13,7 +13,7 @@ export async function GET() {
       "SELECT loan_type_id, loan_type_name FROM loan_types ORDER BY loan_type_name"
     );
     const [purposes] = await pool.query(
-      "SELECT loan_purpose_id, loan_purpose_description FROM loan_purposes ORDER BY loan_purpose_description"
+      "SELECT loan_purpose_id, loan_purpose_description FROM loan_purposes ORDER BY CASE WHEN loan_purpose_description = 'Others' THEN 1 ELSE 0 END, loan_purpose_description"
     );
     return NextResponse.json({ types, purposes });
   } catch (error) {
