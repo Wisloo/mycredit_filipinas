@@ -73,15 +73,6 @@ Edit `.env.local` with your database credentials. **Important:** Change the `JWT
 node seed.js
 ```
 
-This creates sample users and staff accounts:
-
-| Role | Login | Password |
-|------|-------|----------|
-| Borrower | alice@example.com | user123 |
-| Borrower | bob@example.com | user123 |
-| Admin | admin | admin123 |
-| Approver | approver1 | admin123 |
-
 ### 6. Start the development server
 
 ```bash
