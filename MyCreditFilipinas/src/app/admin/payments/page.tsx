@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { X, ZoomIn } from "lucide-react";
 import Pagination from "@/components/Pagination";
 import { useToast } from "@/components/Toast";
 
@@ -38,6 +39,7 @@ export default function AdminPaymentsPage() {
   } | null>(null);
   const [processing, setProcessing] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [receiptModal, setReceiptModal] = useState<string | null>(null);
 
   const fetchPayments = () => {
     fetch("/api/payments")
@@ -231,19 +233,19 @@ export default function AdminPaymentsPage() {
                 <p className="text-gray-700 truncate">
                   {p.reference_number || "—"}
                 </p>
-              </div>              {p.attachment_url && (
-                <div className="col-span-2">
-                  <p className="text-gray-500 text-xs">Receipt</p>
-                  <a
-                    href={p.attachment_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-ph-blue-600 hover:underline text-sm font-medium"
+              </div>              <div className="col-span-2">
+                <p className="text-gray-500 text-xs">Receipt</p>
+                {p.attachment_url ? (
+                  <button
+                    onClick={() => setReceiptModal(p.attachment_url!)}
+                    className="text-ph-blue-600 hover:underline text-sm font-medium flex items-center gap-1"
                   >
-                    View Receipt
-                  </a>
-                </div>
-              )}            </div>
+                    <ZoomIn className="w-3.5 h-3.5" /> View Receipt
+                  </button>
+                ) : (
+                  <span className="text-gray-400 text-xs">No receipt</span>
+                )}
+              </div>            </div>
             {p.payment_status === "Pending" && (
               <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
                 <button
@@ -332,15 +334,14 @@ export default function AdminPaymentsPage() {
                     {p.reference_number || "—"}
                   </td>                  <td className="px-4 py-3 text-gray-500 text-xs max-w-[120px] truncate" title={p.remarks || ""}>
                     {p.remarks || "—"}
-                  </td>                  <td className="px-4 py-3 text-center">                    {p.attachment_url ? (
-                      <a
-                        href={p.attachment_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-ph-blue-600 hover:underline text-xs font-medium"
+                  </td>                  <td className="px-4 py-3 text-center">
+                    {p.attachment_url ? (
+                      <button
+                        onClick={() => setReceiptModal(p.attachment_url!)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-ph-blue-700 text-xs font-medium rounded-lg hover:bg-blue-100 transition-colors"
                       >
-                        View
-                      </a>
+                        <ZoomIn className="w-3.5 h-3.5" /> View
+                      </button>
                     ) : (
                       <span className="text-gray-400 text-xs">—</span>
                     )}
@@ -411,7 +412,25 @@ export default function AdminPaymentsPage() {
                 : "Reject Payment"}
             </h3>
             <p className="text-sm text-gray-600 mb-4">
-              {actionModal.action === "verify" ? (
+              {actionModal.payment.attachment_url && (
+              <div className="mb-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Receipt / Proof of Payment</p>
+                <div
+                  className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50 cursor-zoom-in"
+                  onClick={() => setReceiptModal(actionModal.payment.attachment_url!)}
+                >
+                  <img
+                    src={actionModal.payment.attachment_url}
+                    alt="Receipt"
+                    className="w-full max-h-48 object-contain"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 bg-black/30 transition-opacity">
+                    <span className="text-white text-xs font-medium flex items-center gap-1"><ZoomIn className="w-4 h-4" /> Click to enlarge</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            {actionModal.action === "verify" ? (
                 <>
                   Confirm that Payment #{actionModal.payment.payment_id} of{" "}
                   <strong>
@@ -463,6 +482,37 @@ export default function AdminPaymentsPage() {
                   : "Yes, Reject"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt Lightbox Modal */}
+      {receiptModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80"
+          onClick={() => setReceiptModal(null)}
+        >
+          <div className="relative max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setReceiptModal(null)}
+              className="absolute -top-10 right-0 text-white hover:text-gray-300 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={receiptModal}
+              alt="Receipt"
+              className="w-full max-h-[80vh] object-contain rounded-xl shadow-2xl"
+            />
+            <a
+              href={receiptModal}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="mt-3 flex items-center justify-center gap-2 text-white text-sm hover:underline"
+            >
+              Open in new tab ↗
+            </a>
           </div>
         </div>
       )}

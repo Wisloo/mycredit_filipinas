@@ -284,27 +284,27 @@ export default function DashboardPage() {
   return (
     <div className="space-y-5 animate-fade-in">
       {/* ── Hero ─────────────────────────────────────────── */}
-      <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 text-white">
-        <p className="text-slate-400 text-sm font-medium">{greeting},</p>
+      <div className="bg-gradient-to-br from-ph-blue-600 to-ph-blue-950 rounded-2xl p-6 text-white">
+        <p className="text-ph-blue-200 text-sm font-medium">{greeting},</p>
         <h1 className="text-2xl font-bold mt-0.5">{user?.name || "User"}</h1>
-        <p className="text-slate-500 text-xs mt-0.5 mb-5">
+        <p className="text-ph-blue-300 text-xs mt-0.5 mb-5">
           Here&apos;s your financial snapshot
         </p>
         <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/10">
           <div>
-            <p className="text-slate-400 text-xs mb-1">Outstanding</p>
+            <p className="text-ph-blue-200 text-xs mb-1">Outstanding</p>
             <p className="text-xl font-bold">
               &#8369;{stats.totalBalance.toLocaleString()}
             </p>
           </div>
           <div>
-            <p className="text-slate-400 text-xs mb-1">Total Paid</p>
+            <p className="text-ph-blue-200 text-xs mb-1">Total Paid</p>
             <p className="text-xl font-bold">
               &#8369;{stats.totalPaid.toLocaleString()}
             </p>
           </div>
           <div>
-            <p className="text-slate-400 text-xs mb-1">Next Payment</p>
+            <p className="text-ph-blue-200 text-xs mb-1">Next Payment</p>
             <p className="text-xl font-bold">
               {stats.nextDue
                 ? new Date(stats.nextDue).toLocaleDateString("en-PH", {
@@ -314,7 +314,7 @@ export default function DashboardPage() {
                 : "None"}
             </p>
             {stats.nextDueAmount && (
-              <p className="text-slate-400 text-[11px] mt-0.5">
+              <p className="text-ph-blue-300 text-[11px] mt-0.5">
                 &#8369;{Number(stats.nextDueAmount).toLocaleString()} &middot;
                 Loan #{stats.nextDueLoanId}
               </p>
