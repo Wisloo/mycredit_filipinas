@@ -12,6 +12,7 @@ export async function proxy(req: NextRequest) {
     pathname === "/signup" ||
     pathname === "/privacy" ||
     pathname === "/terms" ||
+    pathname === "/forgot-password" ||
     pathname.startsWith("/api/auth")
   ) {
     // If already logged in, redirect away from login/signup

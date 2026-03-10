@@ -14,6 +14,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <meta httpEquiv="X-DNS-Prefetch-Control" content="on" />
+        <link rel="dns-prefetch" href="https://vercel.live" />
+        <link rel="preconnect" href="https://vercel.live" crossOrigin="anonymous" />
+      </head>
       <body className="bg-gray-50 min-h-screen antialiased">
         <ToastProvider>{children}</ToastProvider>
       </body>
